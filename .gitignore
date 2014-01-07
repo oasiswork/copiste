@@ -1,0 +1,7 @@
+*.pyc
+*~
+.#*
+.vagrant
+build
+dist
+zimsoap.egg-info
