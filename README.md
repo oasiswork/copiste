@@ -5,6 +5,15 @@ Copiste : realtime Postgre → LDAP replication
 - flexible rules (more than just copying fields)
 - handles (un)installing triggers/functions in PostgreSQL
 
+Installing
+----------
+
+Install requirements :
+
+
+    # apt-get install postgresql-server-dev-all postgresql-plpython-9.1
+    $ pip install psycopg2
+
 Getting started
 ---------------
 
@@ -19,5 +28,5 @@ Each time you change something in manifest.py you have to run
 
 	$ copiste update manifest.py
 
-… to push the modifications in the db.
+… to push the modifications into the db.
 
