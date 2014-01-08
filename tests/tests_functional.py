@@ -57,8 +57,11 @@ class TestBinding(AbstractPgEnviron):
         msg = 'unittest message'
         self.cur.execute('CREATE LANGUAGE plpythonu')
 
-        trigger = copiste.sql.WriteTrigger('unittest_table', 'logwarn_unittest')
+
         logwarn_func = copiste.functions.LogWarn(message=msg)
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', logwarn_func.func_name())
         bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
         bind.install()
 
@@ -69,3 +72,12 @@ class TestBinding(AbstractPgEnviron):
         log_result = subprocess.Popen(
             log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
         self.assertIn(msg, log_result)
+
+class TestFunctions(AbstractPgEnviron):
+    def test_register_two_occurences(self):
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+        func1 = copiste.functions.LogWarn(message='msg1')
+        func2 = copiste.functions.LogWarn(message='msg1')
+
+        self.cur.execute(func1.sql_install())
+        self.cur.execute(func2.sql_install())

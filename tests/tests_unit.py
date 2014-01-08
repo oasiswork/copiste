@@ -64,7 +64,7 @@ class TestFunctions(TestCase):
     def test_plpythonfunction_sql_install(self):
         ppf = PlPythonFunction()
         expected = """
-CREATE FUNCTION copiste__plpythonfunction()
+CREATE FUNCTION copiste__plpythonfunction__{}()
 RETURNS TRIGGER
 AS
 $$
@@ -77,12 +77,14 @@ $$
   return f.call(TD, plpy)
 $$
 LANGUAGE plpythonu;
-        """
+        """.format(ppf.uuid)
         self.assertEqual(ppf.sql_install(), expected)
 
     def test_plpythonfunction_sql_uninstall(self):
         ppf = PlPythonFunction()
-        expected = 'DROP FUNCTION copiste__plpythonfunction;'
+        expected = 'DROP FUNCTION copiste__plpythonfunction__{};'.format(
+            ppf.uuid
+        )
         self.assertEqual(ppf.sql_uninstall(), expected)
 
 

@@ -1,13 +1,19 @@
 import inspect
 import marshal
+import uuid
 
 class PlPythonFunction:
     def __init__(self, **kwargs):
         self.args = kwargs
 
-    @classmethod
-    def func_name(cls):
-        return 'copiste__{}'.format(cls.__name__.lower())
+        # builds a uuid withou '-' sign which is forbidden in SQL functions names
+        self.uuid = ''
+        for f in uuid.uuid4().fields:
+            self.uuid += str(f)
+
+    def func_name(self):
+        class_name = self.__class__.__name__
+        return 'copiste__{}__{}'.format(class_name.lower(), self.uuid)
 
     def sql_install(self):
         pyargs_marshalled = marshal.dumps(self.args).encode('base64').strip()
