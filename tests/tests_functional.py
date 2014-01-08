@@ -3,6 +3,8 @@ os.environ['COPISTE_SETTINGS_MODULE'] = 'tests.settings_testenv'
 
 from unittest import TestCase
 import subprocess
+import random
+
 
 import psycopg2
 import copiste
@@ -10,6 +12,8 @@ import copiste.sql
 import copiste.functions
 import copiste.binding
 
+def randomstring():
+    return '%030x' % random.randrange(16**30)
 
 class TestServerConnection(TestCase):
     def setUp(self):
@@ -54,7 +58,7 @@ class TestServerBehaviour(AbstractPgEnviron):
 
 class TestBinding(AbstractPgEnviron):
     def test_log_action(self):
-        msg = 'unittest message'
+        msg = 'unittest_'+randomstring()
         self.cur.execute('CREATE LANGUAGE plpythonu')
 
 
@@ -72,6 +76,36 @@ class TestBinding(AbstractPgEnviron):
         log_result = subprocess.Popen(
             log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
         self.assertIn(msg, log_result)
+
+    def test_log_action_uninstall(self):
+        msg = 'unittest_'+randomstring()
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+        self.con.commit()
+
+        logwarn_func = copiste.functions.LogWarn(message=msg)
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', 'warn_on_write')
+        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
+
+        # Cannot uninstall a not installed function
+        with self.assertRaises(psycopg2.ProgrammingError):
+            bind.uninstall()
+        self.con.commit()
+
+        bind.install()
+        # this time it should succeed
+        bind.uninstall()
+
+        # the trigger should not be triggered
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
+        log_path = "/var/log/postgresql/postgresql-9.1-main.log"
+        log_cmd = 'vagrant ssh -c "tail {}"'.format(log_path)
+        log_result = subprocess.Popen(
+            log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
+        self.assertNotIn(msg, log_result)
+
+
 
 class TestFunctions(AbstractPgEnviron):
     def test_register_two_occurences(self):

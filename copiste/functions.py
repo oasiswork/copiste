@@ -35,7 +35,7 @@ LANGUAGE plpythonu;
         return sql
 
     def sql_uninstall(self):
-        return 'DROP FUNCTION {};'.format(self.func_name())
+        return 'DROP FUNCTION {}()'.format(self.func_name())
 
 class Copy(PlPythonFunction):
     def __init__(self, sql_table, attr_map):

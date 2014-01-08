@@ -1,6 +1,8 @@
 from copiste.settings import SETTINGS
 
 class Bind:
+    """ A bind is an association between a trigger and a function.
+    """
     def __init__(self, trigger, function, connection):
         self.trigger = trigger
         self.function = function
@@ -17,3 +19,5 @@ class Bind:
         cur = self.con.cursor()
         cur.execute(self.trigger.sql_disable())
         cur.execute(self.function.sql_uninstall())
+
+

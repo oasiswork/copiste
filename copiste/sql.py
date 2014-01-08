@@ -29,7 +29,7 @@ class Trigger:
         self.name = name
 
     def sql_disable(self):
-        return 'DROP TRIGGER {} ON {};'.formato(self.name, self.table)
+        return 'DROP TRIGGER {} ON {}'.format(self.db_name(), self.table)
 
     def db_name(self):
         return 'copiste__{}'.format(self.name)
