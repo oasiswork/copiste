@@ -64,15 +64,19 @@ class TestFunctions(TestCase):
     def test_plpythonfunction_sql_install(self):
         ppf = PlPythonFunction()
         expected = """
-        CREATE FUNCTION copiste__plpythonfunction(pyargs_marshalled text)
-          import copiste
-          import marshall
-          marshall.loads(pyargs_marshalled)
-          f = copiste.functions.PlPythonFunction(**pyargs)
-          return f.call(TD)
-        RETURNS TRIGGER
-        AS $$
-        $$ LANGUAGE plpythonu;
+CREATE FUNCTION copiste__plpythonfunction()
+RETURNS TRIGGER
+AS
+$$
+  import copiste
+  import copiste.functions
+  import marshal
+  pyargs_marshalled = \"""ezA=\"""
+  pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
+  f = copiste.functions.PlPythonFunction(**pyargs)
+  return f.call(TD, plpy)
+$$
+LANGUAGE plpythonu;
         """
         self.assertEqual(ppf.sql_install(), expected)
 
@@ -90,8 +94,7 @@ class TestTrigger(TestCase):
         t = WriteTrigger('unittest_table', 'unittest_trigger')
         expected = "CREATE TRIGGER copiste__unittest_trigger BEFORE INSERT "+\
             "OR UPDATE OR DELETE ON unittest_table FOR EACH ROW "+\
-            "EXECUTE PROCEDURE copiste__unittest_func('{}');".format(
-            '{t\x03\x00\x00\x00foo[\x03\x00\x00\x00i\x01\x00\x00\x00i\x02\x00\x00\x00i\x03\x00\x00\x000')
+            "EXECUTE PROCEDURE copiste__unittest_func();"
         got = t.sql_enable('copiste__unittest_func', args={'foo': fooarg})
         self.assertEqual(expected, got)
 

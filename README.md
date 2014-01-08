@@ -10,9 +10,32 @@ Installing
 
 Install requirements :
 
-
     # apt-get install postgresql-server-dev-all postgresql-plpython-9.1
     $ pip install psycopg2
+
+Testing
+-------
+
+### Unit tests ###
+
+    $ python -m unittest tests.tests_unit
+
+### Functional tests ###
+
+Functional tests test the code against a reference virtual platform handled
+by vagrant.
+
+Prerequisite is to have vagrant installed :
+
+    # apt-get install vagrant virtualbox
+
+and to set it up
+
+    $ vagrant up
+
+Then you can run functional tests :
+
+    $ python -m unittest tests.tests_functional
 
 Getting started
 ---------------

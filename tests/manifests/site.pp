@@ -5,4 +5,7 @@ file {'/etc/resolv.conf':
 package { "postgresql-plpython-9.1":
     ensure => "latest"
 }
+package { "python-psycopg2":
+    ensure => "present"
+}
 

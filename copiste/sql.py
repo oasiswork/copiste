@@ -45,14 +45,13 @@ class WriteTrigger(Trigger):
         @param args a dictionary with args for the method (if any), those args
                are always the same for each call of this trigger.
         """
-        pyargs_marshalled = marshal.dumps(args)
+        pyargs_marshalled = marshal.dumps(args).encode('base64')
 
         if not func_name.startswith('copiste__'):
             raise ValueError(
                 '"{}" does not seem to be a copiste function'.format(func_name))
 
         sql = ("CREATE TRIGGER {} BEFORE INSERT OR UPDATE OR DELETE ON {} "+
-               "FOR EACH ROW EXECUTE PROCEDURE {}('{}');"
+               "FOR EACH ROW EXECUTE PROCEDURE {}();"
         ).format(self.db_name(), self.table, func_name, pyargs_marshalled)
-
         return sql
