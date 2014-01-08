@@ -8,13 +8,39 @@ Copiste : realtime Postgre → LDAP replication
 Installing
 ----------
 
-Install requirements :
+You can see two different machines in the install/use process :
 
-    # apt-get install postgresql-server-dev-all postgresql-plpython-9.1
+ - *db* : the host running the database
+ - *control* : the host running the copiste commands
+
+ They can be the same host of course.
+
+### Install on *db* ###
+
+    # ./setup.py install
+
+Note that you have to install it *outside virtualenvs* so that PostgreSQL can
+load it from stored functions.
+
+### Install on *remote* ###
+
+You may install everything in virtualenv if you wish
+
     $ pip install psycopg2
+
+(that may require your root to install postgresql-server-dev-all and
+postgresql-plpython-9.1 packages)
+
+Then
+
+	$ ./setup.py install
+
 
 Testing
 -------
+
+You just have to install psycopg2 on any machine (no system-wide install), to go
+for tests.
 
 ### Unit tests ###
 
@@ -39,6 +65,8 @@ Then you can run functional tests :
 
 Getting started
 ---------------
+
+**NOTICE: that part is not ready right now, those instructions won't work.**
 
     ./setup.py install
 
