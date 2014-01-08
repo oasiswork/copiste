@@ -19,7 +19,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
-  # config.vm.network :forwarded_port, guest: 80, host: 8080
+  config.vm.network :forwarded_port, guest: 389, host: 3389
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -74,6 +74,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # # }
   #
   config.vm.provision :puppet do |puppet|
+    puppet.module_path = "tests/modules"
     puppet.manifests_path = "tests/manifests"
     puppet.manifest_file  = "site.pp"
   end
