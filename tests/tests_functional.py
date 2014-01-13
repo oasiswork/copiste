@@ -44,7 +44,7 @@ class AbstractPgEnviron(TestCase):
         db_settings['database'] = self.dbname
         self.con = psycopg2.connect(**db_settings)
         self.cur = self.con.cursor()
-        self.cur.execute('CREATE TABLE unittest_table (id INT, data VARCHAR(100))')
+        self.cur.execute('CREATE TABLE unittest_table (id INT, mail VARCHAR(100))')
 
     def tearDown(self):
         self.con.close()
