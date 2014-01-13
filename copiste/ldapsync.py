@@ -11,13 +11,15 @@ class LDAPModel:
     CRUD methods are provided to manipulate the model instances.
     """
 
-    def __init__(self, query, base):
+    def __init__(self, query, base, dn):
         """
-        @param key the LDAP field owning the unique key for the model
+        @param dn is a template to generate the dn, fields are handled as for
+        the query
         @param query the LDAP filter to match this model, you can use "{foo}" for
         subsitutions, where "foo" is an attr name, the value wil be substituted.
         @param base the LDAP base to search for this model
         """
+        self.dn = dn
         self.query = query
         self.base = base
 
@@ -84,3 +86,17 @@ class LDAPModel:
         else:
             raise LDAPDataError('cannot delete a non-existant model')
 
+
+    def create(self, ldap_con, attrs):
+        """ Tries to create the object from LDAP
+
+        @param ldap_con a LDAPObject, already bound
+        @param attrs    all the attrs for the new object, you should ommit dn,
+                        it will be computed from self.dn
+        """
+        dn = self.dn.format(**attrs)
+
+        try:
+            res = ldap_con.add_s(dn, attrs.items())
+        except ldap.LDAPError, e:
+            raise LDAPDataError('LDAP Error: {}'.format(str(e)))

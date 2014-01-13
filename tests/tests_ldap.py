@@ -38,7 +38,8 @@ class LDAPSampleData:
             'givenname' : 'Jane',
             'telephonenumber': '+1 408 555 9445',
             'sn': 'Barnes',
-            'uid': '42'
+            'uid': '42',
+            'mail': 'jane@doe.tld'
         }
         c.add_s('cn=jdoe,ou=users,dc=foo,dc=bar', ldap.modlist.addModlist(jdoe))
 
@@ -76,12 +77,13 @@ class TestLDAPModel(unittest.TestCase):
     def test_get_suceeds(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         result_dn, result_fields = mod.get(self.ldap_c, {'uid':'42'})
         self.assertEqual(result_dn, 'cn=jdoe,ou=users,dc=foo,dc=bar')
         expected_attrs = {'telephoneNumber': ['+1 408 555 9445'],
-                    'cn': ['jdoe'],
+                    'cn': ['jdoe'], 'mail': ['jane@doe.tld'],
                     'objectClass': ['inetOrgPerson', 'top'],
                     'sn': ['Barnes'], 'givenName': ['Jane'], 'uid': ['42']}
         self.assertEqual(result_fields, expected_attrs)
@@ -89,8 +91,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_get_noentry(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            #query='(objectClass=*)',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         result_dn, result_fields = mod.get(self.ldap_c, {'uid':'43'})
         self.assertEqual(result_dn, None)
@@ -99,7 +101,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_get_multiple_entries(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(objectClass=*)',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         with self.assertRaises(copiste.ldapsync.LDAPDataError):
             mod.get(self.ldap_c, {})
@@ -107,7 +110,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_delete_succeeds(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         mod.delete(self.ldap_c, {'uid':'42'})
         ldap_dn, _ = mod.get(self.ldap_c, {'uid':'42'})
@@ -117,7 +121,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_delete_noentry(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         with self.assertRaises(copiste.ldapsync.LDAPDataError):
             mod.delete(self.ldap_c, {'uid':'43'})
@@ -125,7 +130,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_modify_succeeds(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         get_attrs = {'uid':'42'}
         changed_attrs = {'sn': 'Changed'}
@@ -142,7 +148,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_modify_noentry(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         get_attrs = {'uid':'45'}
         changed_attrs = {'sn': 'Changed'}
@@ -153,7 +160,8 @@ class TestLDAPModel(unittest.TestCase):
     def test_modify_deleteattr(self):
         mod = copiste.ldapsync.LDAPModel(
             query='(&(objectClass=inetOrgPerson)(uid={uid}))',
-            base='ou=users,dc=foo,dc=bar'
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
         )
         get_attrs = {'uid':'42'}
         changed_attrs = {'telephoneNumber': []}
@@ -164,6 +172,43 @@ class TestLDAPModel(unittest.TestCase):
 
         self.assertEqual(ldap_dn, 'cn=jdoe,ou=users,dc=foo,dc=bar')
         self.assertFalse(ldap_attrs.has_key('telephoneNumber'))
+
+
+    def test_add_succeeds(self):
+        jmalkovitch = {
+            'objectClass': ['inetOrgPerson', 'top'],
+            'cn': 'jmalkovitch',
+            'givenName' : 'John',
+            'telephoneNumber': '+1 408 ',
+            'sn': 'Malkovitch',
+            'uid': '43',
+            'mail': 'john@Malkovitch.tld'
+        }
+
+        def uniqfy(d):
+            """ Transforms the single-valued properties into simple types
+            instead of lists.
+            """
+            out = {}
+            for k,v in d.items():
+                if len(v) == 1:
+                    out[k] = v[0]
+                else:
+                    out[k] = v
+
+            return out
+
+        mod = copiste.ldapsync.LDAPModel(
+            query='(&(objectClass=inetOrgPerson)(uid={uid}))',
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
+        )
+        mod.create(self.ldap_c, jmalkovitch)
+
+        ldap_dn, ldap_attrs = mod.get(self.ldap_c, {'uid': '43'})
+
+        self.assertEqual(ldap_dn, 'uid=43,ou=users,dc=foo,dc=bar')
+        self.assertEqual(uniqfy(ldap_attrs), jmalkovitch)
 
 
     def tearDown(self):
@@ -177,11 +222,10 @@ class TestLDAPModel(unittest.TestCase):
 #         self.ldap_c.simple_bind_s('cn=admin,dc=foo,dc=bar', 'password')
 #         LDAPSampleData.create_base(self.ldap_c)
 
-
 #     def test_foo(self):
 #         self.cur.execute('CREATE LANGUAGE plpythonu')
 
-#         # maping is ldap -> sql
+#         # mapping is ldap -> sql
 #         attrmap = {
 #             'uid': 'id',
 #             'mail': 'mail',
