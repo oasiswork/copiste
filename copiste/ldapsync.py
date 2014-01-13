@@ -11,7 +11,7 @@ class LDAPModel:
     CRUD methods are provided to manipulate the model instances.
     """
 
-    def __init__(self, query, base, dn):
+    def __init__(self, query, base, dn, static_attrs={}):
         """
         @param dn is a template to generate the dn, fields are handled as for
         the query
@@ -22,6 +22,13 @@ class LDAPModel:
         self.dn = dn
         self.query = query
         self.base = base
+        self.static_attrs = static_attrs
+
+    def to_dict(self):
+        d = {}
+        for k in ('dn', 'query', 'base', 'static_attrs'):
+            d[k] = getattr(self, k)
+        return d
 
     def get(self, ldap_con, attrs):
         """ Tries to fetch the model from LDAP
@@ -95,8 +102,15 @@ class LDAPModel:
                         it will be computed from self.dn
         """
         dn = self.dn.format(**attrs)
+        all_attrs = self.static_attrs.copy()
+        all_attrs.update(attrs)
+
+        ldif = ldap.modlist.addModlist(all_attrs)
+        print ldif
 
         try:
-            res = ldap_con.add_s(dn, attrs.items())
+            res = ldap_con.add_s(dn, ldif)
         except ldap.LDAPError, e:
             raise LDAPDataError('LDAP Error: {}'.format(str(e)))
+
+

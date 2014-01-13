@@ -2,6 +2,7 @@ import ldap
 import ldap.modlist
 import unittest
 import copiste.ldapsync
+import time
 
 from tests_functional import AbstractPgEnviron
 
@@ -216,27 +217,104 @@ class TestLDAPModel(unittest.TestCase):
         self.ldap_c.unbind_s()
 
 
-# class LDAPSync(AbstractPgEnviron):
-#     def setUp(self):
-#         self.ldap_c = ldap.initialize('ldap://localhost:3389')
-#         self.ldap_c.simple_bind_s('cn=admin,dc=foo,dc=bar', 'password')
-#         LDAPSampleData.create_base(self.ldap_c)
+class LDAPSync(AbstractPgEnviron):
+    def setUp(self):
+        super(LDAPSync, self).setUp()
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+        try:
+            self.ldap_c = ldap.initialize('ldap://localhost:3389')
+            self.ldap_c.simple_bind_s('cn=admin,dc=foo,dc=bar', 'password')
+            try:
+                LDAPSampleData.delete(self.ldap_c)
+            except:
+                pass
 
-#     def test_foo(self):
-#         self.cur.execute('CREATE LANGUAGE plpythonu')
+            LDAPSampleData.create_base(self.ldap_c)
 
-#         # mapping is ldap -> sql
-#         attrmap = {
-#             'uid': 'id',
-#             'mail': 'mail',
-#         }
+            self.creds = {
+                "host"     : 'ldap://localhost:389',
+                "bind_dn"  : 'cn=admin,dc=foo,dc=bar',
+                "bind_pw"  : 'password'
+            }
+        except Exception, e:
+            try:
+                super(LDAPSync, self).tearDown()
+            except:
+                pass
+            raise
 
-#         ldap_user_model = copiste.ldap.model(
-#             query='(&(objectClass=inetOrgPerson)(uid={}))'
-#         )
+        # mapping is ldap -> sql
+        self.attrmap = {
+            'uid': 'id',
+            'mail': 'mail',
+            'sn': 'mail',
+            'cn': 'mail',
+        }
 
-#         sync_ldap = copiste.ldap.sync_models(attrmap)
+        self.ldap_user_model = copiste.ldapsync.LDAPModel(
+            query='(&(objectClass=inetOrgPerson)(uid={uid}))',
+            base='ou=users,dc=foo,dc=bar',
+            dn = 'uid={uid},ou=users,dc=foo,dc=bar',
+            static_attrs={'objectClass': ['top', 'inetOrgPerson']}
+        )
 
-#     def tearDown(self):
-#         LDAPSampleData.delete(self.ldap_c)
-#         self.ldap_c.unbind_s()
+        self.sql_insert = \
+            "INSERT INTO unittest_table (id, mail) VALUES ('1', 'foo@bar.com')"
+        self.sql_delete = "DELETE FROM unittest_table WHERE (id=1)"
+        self.sql_update_email = \
+            "UPDATE unittest_table set mail='updated@bar.tld' WHERE (id=1)"
+
+        sync_ldap = copiste.functions.Copy2LDAP(
+            attrs_map  = self.attrmap,
+            ldap_model = self.ldap_user_model,
+            ldap_creds = self.creds
+        )
+
+        trigger = copiste.sql.WriteTrigger(
+            sql_table = 'unittest_table',
+            name      = 'sync_users'
+        )
+
+        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
+        bind.install()
+
+    def test_sync_create(self):
+        self.cur.execute(self.sql_insert)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+        expected_attrs = {'objectClass': ['top', 'inetOrgPerson'],
+                          'mail': ['foo@bar.com'], 'sn': ['foo@bar.com'],
+                          'cn': ['foo@bar.com'], 'uid': ['1']}
+
+        self.assertEqual(dn,'uid=1,ou=users,dc=foo,dc=bar')
+        self.assertEqual(attrs, expected_attrs)
+
+    def test_sync_delete(self):
+        self.cur.execute(self.sql_insert)
+        self.cur.execute(self.sql_delete)
+
+        # we check that the user has been removed in ldap
+        dn, _ = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+        self.assertEqual(dn, None)
+
+    def test_sync_update(self):
+        self.cur.execute(self.sql_insert)
+        self.cur.execute(self.sql_update_email)
+
+        # we check that the user has been updated in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+        expected_attrs = {'objectClass': ['top', 'inetOrgPerson'],
+                          'mail': ['updated@bar.tld'], 'sn': ['updated@bar.tld'],
+                          'cn': ['updated@bar.tld'], 'uid': ['1']}
+
+        self.assertEqual(dn, 'uid=1,ou=users,dc=foo,dc=bar')
+        self.assertEqual(attrs, expected_attrs)
+
+    def tearDown(self):
+        super(LDAPSync, self).tearDown()
+        LDAPSampleData.delete(self.ldap_c)
+        self.ldap_c.unbind_s()

@@ -9,6 +9,10 @@ package { "python-psycopg2":
     ensure => "present"
 }
 
+package { "python-ldap":
+    ensure => "present"
+}
+
 
 # node default {
 #   class { 'ldap':

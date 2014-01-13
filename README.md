@@ -81,3 +81,10 @@ Each time you change something in manifest.py you have to run
 
 … to push the modifications into the db.
 
+
+
+Limitations
+-----------
+
+LDAP has no support for transactions and python-ldap has no support of locks, so
+it means no support for lock operations.
