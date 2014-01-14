@@ -14,10 +14,13 @@ class LDAPModel:
     def __init__(self, query, base, dn, static_attrs={}):
         """
         @param dn is a template to generate the dn, fields are handled as for
-        the query
+               the query
         @param query the LDAP filter to match this model, you can use "{foo}" for
-        subsitutions, where "foo" is an attr name, the value wil be substituted.
+               subsitutions, where "foo" is an attr name, the value wil be
+               substituted.
         @param base the LDAP base to search for this model
+        @param static_attrs: a dict containing attributes that will always
+               be the same for a givenModel (think about objectClass).
         """
         self.dn = dn
         self.query = query

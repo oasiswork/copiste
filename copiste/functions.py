@@ -7,6 +7,13 @@ import ldap
 from copiste.ldapsync import LDAPModel
 
 class PlPythonFunction(object):
+    """ An abstract plpython object
+
+    This class handles (un)installation, calling and naming of the stored
+    functions.
+
+    One should extend it, overriding call() and optionally __init__()
+    """
     def __init__(self, **kwargs):
         self.args = kwargs
 
@@ -16,10 +23,16 @@ class PlPythonFunction(object):
             self.uuid += str(f)
 
     def func_name(self):
+        """ Generates the func_name used for storage in Postgre.
+
+        This name is prefixed by "copiste__" and contains a random UUID.
+        """
         class_name = self.__class__.__name__
         return 'copiste__{}__{}'.format(class_name.lower(), self.uuid)
 
     def sql_install(self):
+        """ Stores the function inside the db. Actually stores only a stub,
+        which will call the function. """
         pyargs_marshalled = marshal.dumps(self.args).encode('base64').strip()
         sql = """
 CREATE FUNCTION {}()
@@ -42,12 +55,19 @@ LANGUAGE plpythonu;
         return 'DROP FUNCTION {}()'.format(self.func_name())
 
 class LogWarn(PlPythonFunction):
+    """ Just a functions which prints something in postgres LOG
+    """
     def call(self, TD, plpy):
         plpy.warning(self.args['message'])
 
 
 class Copy2LDAP(PlPythonFunction):
+    """ This function will keep in sync a LDAPModel with the DB, updating it
+    according an attributes map on each CREATE/UPDATE/DELETE/TRUNCATE.
+    """
     def __init__(self, attrs_map, ldap_model, ldap_creds):
+        # as models are marshalled for db storage, we can't store objects, but
+        # only basic types.
         if not isinstance(ldap_model, dict):
             ldap_model = ldap_model.to_dict()
 
@@ -119,8 +139,15 @@ class Copy2LDAP(PlPythonFunction):
         self.get_ldap_model().create(ldap_c, ldap_attrs)
 
     def ldap_data(self, sql_data):
+        """ Transforms a SQL row into a dict of attributes ready for LDAP use.
+
+        Mapping is done according the provided attributes map.
+
+        @param sql_data : a dict representing a SQL row.
+        @returns a dict representing ldap attributes.
+        """
         o = {}
-        # LDAP requires even numbres to be surrounded by quotes, so we str()
+        # LDAP requires even numbers to be surrounded by quotes, so we str()
         # everything
         for ldap_k, sql_k in self.args['attrs_map'].items():
             if sql_data.has_key(sql_k):
