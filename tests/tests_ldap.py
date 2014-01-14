@@ -473,3 +473,69 @@ class LDAPAccumulate(AbstractLDAPPostgresBinding):
 
         self.assertEqual(dn,'uid=1,ou=users,dc=foo,dc=bar')
         self.assertEqual(attrs, expected_attrs)
+
+
+
+class TestStoreTrueIfExists(AbstractLDAPPostgresBinding):
+    def setUp(self):
+        super(TestStoreTrueIfExists, self).setUp()
+
+        # mapping is ldap -> sql
+        self.attrmap = {
+            'uid': 'id',
+            'sn': 'mail',
+            'cn': 'mail',
+            'mail': 'mail'
+        }
+
+        self.dyn_attrs_map = {
+            'mail': ("SELECT mail from unittest_alias WHERE user_id = '{id}'")
+        }
+
+        self.sql_insert = \
+            "INSERT INTO unittest_table (id, mail) VALUES ('1', 'foo@bar.com')"
+        self.sql_delete = "DELETE FROM unittest_table WHERE (id=1)"
+        self.sql_update_email = \
+            "UPDATE unittest_table set mail='updated@bar.tld' WHERE (id=1)"
+        self.sql_insert_a_thing = \
+            "INSERT INTO unittest_things values(1, 'spoon')"
+
+        self.sql_insert_another_thing = \
+            "INSERT INTO unittest_things values(1, 'fork')"
+
+        self.sql_insert_another_thing_to_someone_else = \
+            "INSERT INTO unittest_things values(2, 'a knife')"
+
+        # we create a second table
+        self.cur.execute(
+            'CREATE TABLE unittest_things (owner_id INT, thing VARCHAR(100))')
+
+        sync_ldap = copiste.functions.StoreTrueIfExists(
+            sql_test_attr  = 'owner_id',
+            ldap_bool_attr = 'l', # arbitrary (present in inetOrgPerson),
+                                  # means "owns something"
+            key_map        = {'owner_id':'uid'},
+            ldap_model = self.ldap_user_model,
+            ldap_creds = self.creds,
+        )
+
+        trigger = copiste.sql.WriteTrigger(
+            sql_table = 'unittest_table',
+            name      = 'sync_owner_flag'
+        )
+
+        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
+        bind.install()
+
+        def test_insert(self):
+            self.cur.execute(self.sql_insert)
+            self.cur.execute(self.sql_insert_a_thing)
+
+            # we check that the user has been created in ldap
+            dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+            self.assertEqual(attrs['l'], ['TRUE'])
+
+            self.cur.execute(self.sql_insert_another_thing)
+
+

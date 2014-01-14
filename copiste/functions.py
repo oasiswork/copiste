@@ -60,6 +60,94 @@ class LogWarn(PlPythonFunction):
     def call(self, TD, plpy):
         plpy.warning(self.args['message'])
 
+class StoreTrueIfExists(PlPythonFunction):
+    def __init__(self, sql_test_attr, key_map,
+                 ldap_model,ldap_bool_attr, ldap_creds):
+
+        if not isinstance(ldap_model, dict):
+            ldap_model = ldap_model.to_dict()
+
+        kwargs = {
+            'sql_test_attr': attrs_map,
+            'key_map': key_map,
+            'ldap_bool_attr': ldap_bool_attr,
+            'ldap_model': ldap_model,
+            'ldap_creds': ldap_creds
+        }
+        self.query = 'SELECT COUNT(*) FROM {table}'+\
+            ' WHERE {sql_key} = {sql_key_val}'
+        super(StoreTrueIfExists, self).__init__(**kwargs)
+
+    def get_ldap_model(self):
+        return LDAPModel(**(self.args['ldap_model']))
+
+    def call(self, TD, plpy):
+        creds = self.args['ldap_creds']
+        event = TD['event']
+
+        c = ldap.initialize(creds['host'])
+        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
+        try:
+            if event == 'DELETE':
+                self.handle_DELETE(TD, plpy, c)
+            elif event == 'UPDATE':
+                self.handle_UPDATE(TD, plpy, c)
+            elif event == 'INSERT':
+                self.handle_CREATE(TD, plpy, c)
+            else:
+                raise ValueError('unknown event : '+event )
+        except:
+            c.unbind_s()
+            raise
+
+        else:
+            c.unbind_s()
+
+    def handle_CREATE(self, TD, plpy, ldap_c):
+        ldap_key, sql_key = self.args['key_map'].items()[0]
+        ldap_identify = {ldap_key: TD['new'][sql_keys]}
+        bool_attr = self.args['ldap_bool_attr']
+
+        plpy.log('creating an entry from SQL with values {}'.format(
+                str(ldap_attrs)))
+        self.get_ldap_model().update(ldap_c, ldap_identify, {bool_attr: 'TRUE'})
+
+    def handle_UPDATE(self, TD, plpy, ldap_c):
+        ldap_key, sql_key = self.args['key_map'].items()[0]
+        new = TD['new']
+        old = TD['old']
+        bool_attr = self.args['ldap_bool_attr']
+
+        ldap_identify_new = {ldap_key: new[sql_keys]}
+
+
+        # Update is a create/delete in our case
+        if old[sql_key] != new[sql_key]:
+            if new[sql_key]:
+                self.get_ldap_model().update(
+                    ldap_c, ldap_identify_new, {bool_attr: 'TRUE'})
+            self.handle_DELETE(TD, plpy, ldap_c)
+
+    def handle_DELETE(self, TD, plpy, ldap_c):
+        ldap_key, sql_key = self.args['key_map'].items()[0]
+        old = TD['old']
+        ldap_identify_old = {ldap_key: old[sql_key]}
+
+        sql = 'SELECT COUNT(*) > 0 FROM {} WHERE {} = '.format(
+            TD['table_name'], sql_key, old[sql_key])
+
+        has_match = plpy.execute(sql)[0].values()[0]
+
+        if response:
+            val = 'TRUE'
+        else:
+            val = 'FALSE'
+
+        self.get_ldap_model().update(
+            ldap_c, ldap_identify_old, {bool_attr: val})
+
+
+
 class Copy2LDAP(PlPythonFunction):
     """ This function will keep in sync a LDAPModel with the DB, updating it
     according an attributes map on each CREATE/UPDATE/DELETE/TRUNCATE.
@@ -107,6 +195,14 @@ class Copy2LDAP(PlPythonFunction):
 
         else:
             c.unbind_s()
+
+
+    def handle_CREATE(self, TD, plpy, ldap_c):
+        ldap_attrs = self.ldap_data(TD['new'])
+        plpy.log('creating an entry from SQL with values {}'.format(
+                str(ldap_attrs)))
+        self.process_dyn_attrs(ldap_attrs, plpy, TD['new'])
+        self.get_ldap_model().create(ldap_c, ldap_attrs)
 
 
     def handle_UPDATE(self, TD, plpy, ldap_c):
