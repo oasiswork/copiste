@@ -82,7 +82,7 @@ LANGUAGE plpythonu;
 
     def test_plpythonfunction_sql_uninstall(self):
         ppf = PlPythonFunction()
-        expected = 'DROP FUNCTION copiste__plpythonfunction__{};'.format(
+        expected = 'DROP FUNCTION copiste__plpythonfunction__{}()'.format(
             ppf.uuid
         )
         self.assertEqual(ppf.sql_uninstall(), expected)
