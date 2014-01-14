@@ -324,6 +324,68 @@ class LDAPSync(AbstractLDAPPostgresBinding):
         self.assertEqual(dn, 'uid=1,ou=users,dc=foo,dc=bar')
         self.assertEqual(attrs, expected_attrs)
 
+class LDAPSyncWithDynAttr(AbstractLDAPPostgresBinding):
+    def setUp(self):
+        super(LDAPSyncWithDynAttr, self).setUp()
+
+        # mapping is ldap -> sql
+        self.attrmap = {
+            'uid': 'id',
+            'sn': 'mail',
+            'cn': 'mail',
+            'mail': 'mail'
+        }
+
+        self.dyn_attrs_map = {
+            'mail': ("SELECT mail from unittest_alias WHERE user_id = '{id}'")
+        }
+
+        self.sql_insert = \
+            "INSERT INTO unittest_table (id, mail) VALUES ('1', 'foo@bar.com')"
+        self.sql_delete = "DELETE FROM unittest_table WHERE (id=1)"
+        self.sql_update_email = \
+            "UPDATE unittest_table set mail='updated@bar.tld' WHERE (id=1)"
+        self.sql_insert_alias = \
+            "INSERT INTO unittest_alias values(1, 'alias@alias.tld')"
+
+        # we create a second table
+        self.cur.execute(
+            'CREATE TABLE unittest_alias (user_id INT, mail VARCHAR(100))')
+
+        sync_ldap = copiste.functions.Copy2LDAP(
+            attrs_map  = self.attrmap,
+            ldap_model = self.ldap_user_model,
+            ldap_creds = self.creds,
+            dyn_attrs_map = self.dyn_attrs_map
+        )
+
+        trigger = copiste.sql.WriteTrigger(
+            sql_table = 'unittest_table',
+            name      = 'sync_users'
+        )
+
+        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
+        bind.install()
+
+    def test_sync_create(self):
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+        self.assertEqual(attrs['mail'], ['foo@bar.com', 'alias@alias.tld'])
+
+    def test_sync_update(self):
+        self.cur.execute(self.sql_insert)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_update_email)
+
+        # we check that the user has been updated in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+
+        self.assertEqual(attrs['mail'], ['updated@bar.tld', 'alias@alias.tld'])
+
 
 class LDAPAccumulate(AbstractLDAPPostgresBinding):
     def setUp(self):

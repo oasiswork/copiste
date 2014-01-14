@@ -60,12 +60,16 @@ class LogWarn(PlPythonFunction):
     def call(self, TD, plpy):
         plpy.warning(self.args['message'])
 
-
 class Copy2LDAP(PlPythonFunction):
     """ This function will keep in sync a LDAPModel with the DB, updating it
     according an attributes map on each CREATE/UPDATE/DELETE/TRUNCATE.
     """
-    def __init__(self, attrs_map, ldap_model, ldap_creds):
+    def __init__(self, attrs_map, ldap_model, ldap_creds, dyn_attrs_map={}):
+        """
+        @param dyn_attrs_map : a map containing ldap_attr->SQL_REQUEST, the
+        requests is a string and can be parametrized using sql columns (ex:
+        "{name}"), they will be replaced at query-time.
+        """
         # as models are marshalled for db storage, we can't store objects, but
         # only basic types.
         if not isinstance(ldap_model, dict):
@@ -73,6 +77,7 @@ class Copy2LDAP(PlPythonFunction):
 
         kwargs = {
             'attrs_map': attrs_map,
+            'dyn_attrs_map': dyn_attrs_map,
             'ldap_model': ldap_model,
             'ldap_creds': ldap_creds
         }
@@ -126,6 +131,7 @@ class Copy2LDAP(PlPythonFunction):
                     (old_ldap_attrs[k] != new_ldap_attrs[k])):
                     diff[k] = v
 
+            self.process_dyn_attrs(new_ldap_attrs, plpy, TD['new'])
             self.get_ldap_model().modify(ldap_c, old_ldap_attrs, new_ldap_attrs)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
@@ -136,6 +142,7 @@ class Copy2LDAP(PlPythonFunction):
         ldap_attrs = self.ldap_data(TD['new'])
         plpy.log('creating an entry from SQL with values {}'.format(
                 str(ldap_attrs)))
+        self.process_dyn_attrs(ldap_attrs, plpy, TD['new'])
         self.get_ldap_model().create(ldap_c, ldap_attrs)
 
     def ldap_data(self, sql_data):
@@ -153,6 +160,30 @@ class Copy2LDAP(PlPythonFunction):
             if sql_data.has_key(sql_k):
                 o[ldap_k] = str(sql_data[sql_k])
         return o
+
+    def process_dyn_attrs(self, ldap_attrs, plpy, new_row):
+        """ Process the dynamic attributes,
+
+        Updates (inplace) the ldap_attrs dict accordingly.
+        if an attr is already specified, and have to be computed dynamically
+        also, its content will *not* be replaced, but a multivalued LDAP
+        attribute will be used.
+
+        @param ldap_attrs the ldap_attrs, already populated
+        """
+        for k, sql_request in self.args['dyn_attrs_map'].items():
+            res = plpy.execute(sql_request.format(**new_row))
+
+            if len(res) > 0:
+                if not ldap_attrs.has_key(k):
+                    ldap_attrs[k] = []
+                elif not isinstance(ldap_attrs[k], (list, tuple)):
+                    ldap_attrs[k] = [ldap_attrs[k]]
+                ldap_attrs[k] += [i[k] for i in res]
+                # remove duplicates:
+                ldap_attrs = list(set(ldap_attrs))
+
+
 
 class Accumulate2LDAPField(PlPythonFunction):
     """ This function will store the result of a query in a multi-value
@@ -249,8 +280,6 @@ class Accumulate2LDAPField(PlPythonFunction):
             print ldif
             ldap_c.modify_s(dn, ldif)
             print ldif
-
-
 
     def get_accumulator_list(self, ldap_c, sql_data):
         keys_map = self.args['keys_map']
