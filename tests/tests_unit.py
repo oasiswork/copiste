@@ -51,7 +51,11 @@ class TestSettings(TestCase):
         settings_f.write("FOO_VAR = 42\n")
         settings_f.close()
         sys.path.insert(0, self.d)
-        del(sys.modules['copiste.settings'])
+        try:
+            # delete module if it exists
+            del(sys.modules['copiste.settings'])
+        except KeyError:
+            pass
         from copiste.settings import SETTINGS
         sys.path.pop()
         self.assertEqual(SETTINGS.FOO_VAR, 42)
@@ -106,3 +110,24 @@ class TestTrigger(TestCase):
         got = t.sql_enable('copiste__unittest_func', args={'foo': fooarg})
         self.assertEqual(expected, got)
 
+
+from copiste.ldapsync import LDAPUtils
+
+class TestLDAPUtils(TestCase):
+    def test_build_AND_filter_multi(self):
+        d = {'foo': 'bar', 'spam': 'egg'}
+        expected_filter = '&((foo=bar)(spam=egg))'
+
+        self.assertEqual(LDAPUtils.build_AND_filter(d), expected_filter)
+
+    def test_build_AND_filter_single(self):
+        d = {'foo': 'bar'}
+        expected_filter = '(foo=bar)'
+
+        self.assertEqual(LDAPUtils.build_AND_filter(d), expected_filter)
+
+    def test_build_AND_filter_empty(self):
+        d = {}
+        expected_filter = ''
+
+        self.assertEqual(LDAPUtils.build_AND_filter(d), expected_filter)
