@@ -2,6 +2,7 @@ import os
 from os.path import dirname, abspath
 import sys
 
+# insert the name of
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from unittest import TestCase
@@ -38,8 +39,10 @@ class SQLModelsTest(TestCase):
 class TestSettings(TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp()
+        self.prevdir = os.getcwd()
 
     def tearDown(self):
+        os.chdir(self.prevdir)
         shutil.rmtree(self.d)
 
     def testSettingsImport(self):
@@ -47,7 +50,10 @@ class TestSettings(TestCase):
         settings_f = open('settings.py', 'w')
         settings_f.write("FOO_VAR = 42\n")
         settings_f.close()
+        sys.path.insert(0, self.d)
+        del(sys.modules['copiste.settings'])
         from copiste.settings import SETTINGS
+        sys.path.pop()
         self.assertEqual(SETTINGS.FOO_VAR, 42)
 
     def testSettingsInEnviron(self):

@@ -109,7 +109,6 @@ class LDAPModel:
         all_attrs.update(attrs)
 
         ldif = ldap.modlist.addModlist(all_attrs)
-        print ldif
 
         try:
             res = ldap_con.add_s(dn, ldif)

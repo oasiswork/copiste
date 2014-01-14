@@ -1,10 +1,12 @@
 import os
-os.environ['COPISTE_SETTINGS_MODULE'] = 'tests.settings_testenv'
 
 from unittest import TestCase
 import subprocess
 import random
 
+os.environ['COPISTE_SETTINGS_MODULE'] = 'tests.settings_testenv'
+from copiste.settings import SETTINGS
+del os.environ['COPISTE_SETTINGS_MODULE']
 
 import psycopg2
 import copiste
@@ -17,7 +19,6 @@ def randomstring():
 
 class TestServerConnection(TestCase):
     def setUp(self):
-        from copiste.settings import SETTINGS
         con = psycopg2.connect(**SETTINGS.DB)
         self.cur = con.cursor()
 
@@ -25,11 +26,8 @@ class TestServerConnection(TestCase):
         self.cur.execute('SELECT version()')
         self.assertIn('PostgreSQL', self.cur.fetchone()[0])
 
-
 class AbstractPgEnviron(TestCase):
     def setUp(self):
-        from copiste.settings import SETTINGS
-
         self.dbname = 'unittest'
 
         management_con = psycopg2.connect(**SETTINGS.DB)
