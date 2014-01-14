@@ -476,66 +476,122 @@ class LDAPAccumulate(AbstractLDAPPostgresBinding):
 
 
 
-class TestStoreTrueIfExists(AbstractLDAPPostgresBinding):
+class TestStoreIfExists(AbstractLDAPPostgresBinding):
     def setUp(self):
-        super(TestStoreTrueIfExists, self).setUp()
+        super(TestStoreIfExists, self).setUp()
 
-        # mapping is ldap -> sql
-        self.attrmap = {
-            'uid': 'id',
-            'sn': 'mail',
-            'cn': 'mail',
-            'mail': 'mail'
-        }
-
-        self.dyn_attrs_map = {
-            'mail': ("SELECT mail from unittest_alias WHERE user_id = '{id}'")
-        }
-
-        self.sql_insert = \
-            "INSERT INTO unittest_table (id, mail) VALUES ('1', 'foo@bar.com')"
-        self.sql_delete = "DELETE FROM unittest_table WHERE (id=1)"
-        self.sql_update_email = \
-            "UPDATE unittest_table set mail='updated@bar.tld' WHERE (id=1)"
         self.sql_insert_a_thing = \
             "INSERT INTO unittest_things values(1, 'spoon')"
 
+        self.sql_give_a_thing = \
+            "UPDATE unittest_things SET owner_id= '2' WHERE thing = 'spoon'"
+
+        self.sql_delete_a_thing = \
+            "DELETE FROM unittest_things WHERE thing = 'spoon'"
+
         self.sql_insert_another_thing = \
             "INSERT INTO unittest_things values(1, 'fork')"
+        self.sql_delete_another_thing = \
+            "DELETE FROM unittest_things WHERE thing = 'fork'"
 
-        self.sql_insert_another_thing_to_someone_else = \
+        self.sql_insert_someone_else_thing = \
             "INSERT INTO unittest_things values(2, 'a knife')"
+
+        self.sql_take_someone_else_thing = \
+            "UPDATE unittest_things SET owner_id= '1' WHERE thing = 'knife'"
+
 
         # we create a second table
         self.cur.execute(
             'CREATE TABLE unittest_things (owner_id INT, thing VARCHAR(100))')
 
-        sync_ldap = copiste.functions.StoreTrueIfExists(
+        sample_user = {'objectClass': ['top', 'inetOrgPerson'],
+                       'mail': ['foo@bar.com'], 'sn': ['foo@bar.com'],
+                       'cn': ['foo@bar.com'], 'uid': ['1']}
+
+        sample_user2 = {'objectClass': ['top', 'inetOrgPerson'],
+                       'mail': ['other@bar.com'], 'sn': ['other@bar.com'],
+                       'cn': ['other@bar.com'], 'uid': ['2']}
+
+        self.ldap_c.add_s('uid=1,ou=users,dc=foo,dc=bar',
+                          ldap.modlist.addModlist(sample_user))
+
+        self.ldap_c.add_s('uid=2,ou=users,dc=foo,dc=bar',
+                          ldap.modlist.addModlist(sample_user2))
+
+        sync_ldap = copiste.functions.StoreIfExists(
             sql_test_attr  = 'owner_id',
-            ldap_bool_attr = 'l', # arbitrary (present in inetOrgPerson),
-                                  # means "owns something"
-            key_map        = {'owner_id':'uid'},
+            ldap_store_key = 'objectClass',
+            ldap_store_val = 'bootableDevice', # arbitrary, IRL would be (thingOwner)
+            key_map        = {'uid':'owner_id'},
             ldap_model = self.ldap_user_model,
             ldap_creds = self.creds,
         )
 
         trigger = copiste.sql.WriteTrigger(
-            sql_table = 'unittest_table',
+            sql_table = 'unittest_things',
             name      = 'sync_owner_flag'
         )
 
         bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
         bind.install()
 
-        def test_insert(self):
-            self.cur.execute(self.sql_insert)
-            self.cur.execute(self.sql_insert_a_thing)
+    def test_insert(self):
+        self.cur.execute(self.sql_insert_a_thing)
 
-            # we check that the user has been created in ldap
-            dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
-
-            self.assertEqual(attrs['l'], ['TRUE'])
-
-            self.cur.execute(self.sql_insert_another_thing)
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['objectClass'],
+                         ['top', 'inetOrgPerson', 'bootableDevice'])
 
 
+    def test_insert_two(self):
+        self.cur.execute(self.sql_insert_a_thing)
+        self.cur.execute(self.sql_insert_another_thing)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['objectClass'],
+                         ['top', 'inetOrgPerson', 'bootableDevice'])
+
+    def test_insert_remove(self):
+        self.cur.execute(self.sql_insert_a_thing)
+        self.cur.execute(self.sql_delete_a_thing)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['objectClass'],
+                         ['top', 'inetOrgPerson'])
+
+    def test_insert_insert_remove(self):
+        self.cur.execute(self.sql_insert_a_thing)
+        self.cur.execute(self.sql_insert_another_thing)
+        self.cur.execute(self.sql_delete_a_thing)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['objectClass'],
+                         ['top', 'inetOrgPerson', 'bootableDevice'])
+
+    def test_update_become_true(self):
+        self.cur.execute(self.sql_insert_a_thing)
+        self.cur.execute(self.sql_insert_another_thing)
+        self.cur.execute(self.sql_delete_a_thing)
+
+        # we check that the user has been created in ldap
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['objectClass'],
+                         ['top', 'inetOrgPerson', 'bootableDevice'])
+
+    def test_update_become_false(self):
+        self.cur.execute(self.sql_insert_a_thing)
+        self.cur.execute(self.sql_give_a_thing)
+
+        dn1, attrs1 = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        dn2, attrs2 = self.ldap_user_model.get(self.ldap_c, {'uid':'2'})
+
+        self.assertEqual(attrs1['objectClass'],
+                         ['top', 'inetOrgPerson'])
+
+        self.assertEqual(attrs2['objectClass'],
+                         ['top', 'inetOrgPerson', 'bootableDevice'])

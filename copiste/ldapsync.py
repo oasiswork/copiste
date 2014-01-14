@@ -1,6 +1,8 @@
 import ldap
 import ldap.modlist
 
+import copy
+
 class LDAPUtils:
     @staticmethod
     def build_AND_filter(keyval):
@@ -87,7 +89,7 @@ class LDAPModel:
             raise LDAPDataError('cannot delete a non-existant model')
 
 
-    def modify(self, ldap_con, attrs, changed_attrs):
+    def modify(self, ldap_con, attrs, changed_attrs, accumulate=False):
         """
         Modify a model instance (raise a LDAPDataError error if the model does
         not exists.)
@@ -99,19 +101,53 @@ class LDAPModel:
         @param changed_attrs a map containing only the attributes you want to
                              change, others won't be touched. Specify empty list
                              to blank an attribute.
+        @param accumulate  add element to multi-valued attr instead of
+                           overwritting existing attrs
         """
 
         ldap_dn, old_attrs = self.get(ldap_con, attrs)
         if not ldap_dn:
             raise LDAPDataError('cannot modify a non-existant model')
-        new_attrs = old_attrs.copy()
-        new_attrs.update(changed_attrs)
+        new_attrs = copy.deepcopy(old_attrs)
+        print old_attrs
+
+        if accumulate:
+            # add element to multi-valued attr instead of overwritting
+            for k,v in changed_attrs.items():
+                if not new_attrs.has_key(k):
+                    new_attrs[k] = []
+                elif not isinstance(new_attrs[k], (list, tuple)):
+                    new_attrs[k] = [new_attrs[k]]
+                # avoid duplicates
+                if not v in new_attrs[k]:
+                    new_attrs[k].append(v)
+        else:
+            new_attrs.update(changed_attrs)
+
+        if ldap_dn:
+            delta = ldap.modlist.modifyModlist(old_attrs, new_attrs)
+            print 'DELTA', delta
+            ldap_con.modify_s(ldap_dn, delta)
+        else:
+            raise LDAPDataError('cannot delete a non-existant model')
+
+    def remove_from_attr(self, ldap_con, attrs, attr, val):
+        """ For a specific LDAP attribute, remove a value from a multi-valued
+        attr.
+        """
+        ldap_dn, old_attrs = self.get(ldap_con, attrs)
+        new_attrs = copy.deepcopy(old_attrs)
+
+        if val in new_attrs[attr]:
+            new_attrs = new_attrs.copy()
+            new_attrs[attr].remove(val)
 
         if ldap_dn:
             delta = ldap.modlist.modifyModlist(old_attrs, new_attrs)
             ldap_con.modify_s(ldap_dn, delta)
+
         else:
-            raise LDAPDataError('cannot delete a non-existant model')
+            raise LDAPDataError('cannot modify a non-existant model')
 
 
     def create(self, ldap_con, attrs):

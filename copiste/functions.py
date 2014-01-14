@@ -60,23 +60,24 @@ class LogWarn(PlPythonFunction):
     def call(self, TD, plpy):
         plpy.warning(self.args['message'])
 
-class StoreTrueIfExists(PlPythonFunction):
+class StoreIfExists(PlPythonFunction):
     def __init__(self, sql_test_attr, key_map,
-                 ldap_model,ldap_bool_attr, ldap_creds):
+                 ldap_model,ldap_store_key, ldap_store_val, ldap_creds):
 
         if not isinstance(ldap_model, dict):
             ldap_model = ldap_model.to_dict()
 
         kwargs = {
-            'sql_test_attr': attrs_map,
+            'sql_test_attr': sql_test_attr,
             'key_map': key_map,
-            'ldap_bool_attr': ldap_bool_attr,
+            'ldap_store_key': ldap_store_key,
+            'ldap_store_val': ldap_store_val,
             'ldap_model': ldap_model,
             'ldap_creds': ldap_creds
         }
         self.query = 'SELECT COUNT(*) FROM {table}'+\
             ' WHERE {sql_key} = {sql_key_val}'
-        super(StoreTrueIfExists, self).__init__(**kwargs)
+        super(StoreIfExists, self).__init__(**kwargs)
 
     def get_ldap_model(self):
         return LDAPModel(**(self.args['ldap_model']))
@@ -105,46 +106,41 @@ class StoreTrueIfExists(PlPythonFunction):
 
     def handle_CREATE(self, TD, plpy, ldap_c):
         ldap_key, sql_key = self.args['key_map'].items()[0]
-        ldap_identify = {ldap_key: TD['new'][sql_keys]}
-        bool_attr = self.args['ldap_bool_attr']
+        ldap_identify = {ldap_key: TD['new'][sql_key]}
+        store_attr = self.args['ldap_store_key']
+        store_val = self.args['ldap_store_val']
 
-        plpy.log('creating an entry from SQL with values {}'.format(
-                str(ldap_attrs)))
-        self.get_ldap_model().update(ldap_c, ldap_identify, {bool_attr: 'TRUE'})
+        self.get_ldap_model().modify(
+            ldap_c, ldap_identify,
+            {store_attr: store_val},
+            accumulate=True)
 
     def handle_UPDATE(self, TD, plpy, ldap_c):
         ldap_key, sql_key = self.args['key_map'].items()[0]
         new = TD['new']
         old = TD['old']
-        bool_attr = self.args['ldap_bool_attr']
-
-        ldap_identify_new = {ldap_key: new[sql_keys]}
-
 
         # Update is a create/delete in our case
         if old[sql_key] != new[sql_key]:
             if new[sql_key]:
-                self.get_ldap_model().update(
-                    ldap_c, ldap_identify_new, {bool_attr: 'TRUE'})
+                self.handle_CREATE(TD, plpy, ldap_c)
             self.handle_DELETE(TD, plpy, ldap_c)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
         ldap_key, sql_key = self.args['key_map'].items()[0]
         old = TD['old']
         ldap_identify_old = {ldap_key: old[sql_key]}
+        store_attr = self.args['ldap_store_key']
+        store_val = self.args['ldap_store_val']
 
-        sql = 'SELECT COUNT(*) > 0 FROM {} WHERE {} = '.format(
+        # >1 cause we have to count the row that is going to be deleted
+        sql = "SELECT COUNT(*) > 1 FROM {} WHERE {} = '{}'".format(
             TD['table_name'], sql_key, old[sql_key])
 
         has_match = plpy.execute(sql)[0].values()[0]
-
-        if response:
-            val = 'TRUE'
-        else:
-            val = 'FALSE'
-
-        self.get_ldap_model().update(
-            ldap_c, ldap_identify_old, {bool_attr: val})
+        if not has_match:
+            self.get_ldap_model().remove_from_attr(
+                ldap_c, ldap_identify_old, store_attr, store_val)
 
 
 
