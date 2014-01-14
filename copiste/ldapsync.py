@@ -1,6 +1,23 @@
 import ldap
 import ldap.modlist
 
+class LDAPUtils:
+    @staticmethod
+    def build_AND_filter(keyval):
+        """" Builds a LDAP AND filter
+
+        @param keyval a dict of key-value, all of them should match
+        @returns      a string : the LDAP filter
+        """
+        filters = ['({}={})'.format(k, v) for k, v in keyval.items()]
+        if len(filters) == 1:
+            return filters[0]
+        elif len(filters) == 0:
+            return ''
+        else:
+            return '&({})'.format(''.join(filters))
+
+
 class LDAPDataError(Exception):
     pass
 

@@ -4,7 +4,7 @@ import uuid
 
 import ldap
 
-from copiste.ldapsync import LDAPModel
+from copiste.ldapsync import LDAPModel, LDAPUtils
 
 class PlPythonFunction(object):
     """ An abstract plpython object
@@ -154,3 +154,113 @@ class Copy2LDAP(PlPythonFunction):
                 o[ldap_k] = str(sql_data[sql_k])
         return o
 
+class Accumulate2LDAPField(PlPythonFunction):
+    """ This function will store the result of a query in a multi-value
+        attribute from a ldap model.
+    """
+    def __init__(self, ldap_field, keys_map, ldap_model, ldap_creds):
+        # as models are marshalled for db storage, we can't store objects, but
+        # only basic types.
+        if not isinstance(ldap_model, dict):
+            ldap_model = ldap_model.to_dict()
+
+        kwargs = {
+            'ldap_field': ldap_field,
+            'keys_map'  : keys_map,
+            'ldap_model': ldap_model,
+            'ldap_creds': ldap_creds
+        }
+        super(Accumulate2LDAPField, self).__init__(**kwargs)
+
+    def get_ldap_model(self):
+        return LDAPModel(**(self.args['ldap_model']))
+
+
+    def call(self, TD, plpy):
+        creds = self.args['ldap_creds']
+        event = TD['event']
+
+        c = ldap.initialize(creds['host'])
+        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
+
+        try:
+            if event == 'DELETE':
+                self.handle_DELETE(TD, plpy, c)
+            elif event == 'UPDATE':
+                self.handle_UPDATE(TD, plpy, c)
+            elif event == 'INSERT':
+                self.handle_INSERT(TD, plpy, c)
+            else:
+                raise ValueError('unknown event : '+event )
+        except:
+            c.unbind_s()
+            raise
+
+        else:
+            c.unbind_s()
+
+    def handle_INSERT(self, TD, plpy, ldap_c):
+        field = self.args['ldap_field']
+        new_row = TD['new']
+        new_val = new_row[field]
+        dn, previous_values = self.get_accumulator_list(ldap_c, new_row)
+
+        if not new_val in previous_values:
+            new_values = list(previous_values) # copy
+            new_values.append(new_val)
+
+            ldif = ldap.modlist.modifyModlist(
+                {field : previous_values},
+                {field: new_values}
+            )
+            ldap_c.modify_s(dn, ldif)
+
+    def handle_DELETE(self, TD, plpy, ldap_c):
+        field = self.args['ldap_field']
+        old_row = TD['old']
+        old_val = old_row[field]
+
+        dn, previous_values = self.get_accumulator_list(ldap_c, old_row)
+        new_values = list(previous_values) # copy
+        new_values.remove(old_val)
+        ldif = ldap.modlist.modifyModlist(
+            {field : previous_values},
+            {field: new_values}
+        )
+        ldap_c.modify_s(dn, ldif)
+
+    def handle_UPDATE(self, TD, plpy, ldap_c):
+        field = self.args['ldap_field']
+        old_row = TD['old']
+        new_row = TD['new']
+        old_val = old_row[field]
+        new_val = new_row[field]
+
+        if new_val != old_val:
+            dn, previous_values = self.get_accumulator_list(ldap_c, old_row)
+            new_values = list(previous_values) # copy
+            new_values.remove(old_val)
+            if not new_val in new_values:
+                new_values.append(new_val)
+            ldif = ldap.modlist.modifyModlist(
+                {field: previous_values},
+                {field: new_values}
+            )
+            print ldif
+            ldap_c.modify_s(dn, ldif)
+            print ldif
+
+
+
+    def get_accumulator_list(self, ldap_c, sql_data):
+        keys_map = self.args['keys_map']
+        ldap_model = self.get_ldap_model()
+        field = self.args['ldap_field']
+
+        matches = {}
+        for ldap_key, sql_key in keys_map.items():
+            matches[ldap_key] = sql_data[sql_key]
+
+        dn, attrs = ldap_model.get(ldap_c, matches)
+
+        return dn, attrs[field]
