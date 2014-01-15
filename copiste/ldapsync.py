@@ -6,7 +6,7 @@ import copy
 class LDAPUtils:
     @staticmethod
     def build_AND_filter(keyval):
-        """" Builds a LDAP AND filter
+        """ Builds a LDAP AND filter
 
         @param keyval a dict of key-value, all of them should match
         @returns      a string : the LDAP filter
@@ -109,7 +109,6 @@ class LDAPModel:
         if not ldap_dn:
             raise LDAPDataError('cannot modify a non-existant model')
         new_attrs = copy.deepcopy(old_attrs)
-        print old_attrs
 
         if accumulate:
             # add element to multi-valued attr instead of overwritting
@@ -126,7 +125,6 @@ class LDAPModel:
 
         if ldap_dn:
             delta = ldap.modlist.modifyModlist(old_attrs, new_attrs)
-            print 'DELTA', delta
             ldap_con.modify_s(ldap_dn, delta)
         else:
             raise LDAPDataError('cannot delete a non-existant model')

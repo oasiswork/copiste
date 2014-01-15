@@ -369,9 +369,7 @@ class Accumulate2LDAPField(PlPythonFunction):
                 {field: previous_values},
                 {field: new_values}
             )
-            print ldif
             ldap_c.modify_s(dn, ldif)
-            print ldif
 
     def get_accumulator_list(self, ldap_c, sql_data):
         keys_map = self.args['keys_map']
