@@ -3,7 +3,35 @@ import ldap
 from copiste.ldapsync import LDAPModel, LDAPUtils
 from copiste.functions.base import PlPythonFunction
 
-class StoreIfExists(PlPythonFunction):
+class LDAPWriterFunction(PlPythonFunction):
+    def get_ldap_model(self):
+        return LDAPModel(**(self.args['ldap_model']))
+
+    def call(self, TD, plpy):
+        creds = self.args['ldap_creds']
+        event = TD['event']
+
+        c = ldap.initialize(creds['host'])
+        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
+        try:
+            if event == 'DELETE':
+                self.handle_DELETE(TD, plpy, c)
+            elif event == 'UPDATE':
+                self.handle_UPDATE(TD, plpy, c)
+            elif event == 'INSERT':
+                self.handle_INSERT(TD, plpy, c)
+            else:
+                raise ValueError('unknown event : '+event )
+        except:
+            c.unbind_s()
+            raise
+
+        else:
+            c.unbind_s()
+
+
+
+class StoreIfExists(LDAPWriterFunction):
     def __init__(self, sql_test_attr, key_map,
                  ldap_model,ldap_store_key, ldap_store_val, ldap_creds):
 
@@ -22,32 +50,7 @@ class StoreIfExists(PlPythonFunction):
             ' WHERE {sql_key} = {sql_key_val}'
         super(StoreIfExists, self).__init__(**kwargs)
 
-    def get_ldap_model(self):
-        return LDAPModel(**(self.args['ldap_model']))
-
-    def call(self, TD, plpy):
-        creds = self.args['ldap_creds']
-        event = TD['event']
-
-        c = ldap.initialize(creds['host'])
-        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
-        try:
-            if event == 'DELETE':
-                self.handle_DELETE(TD, plpy, c)
-            elif event == 'UPDATE':
-                self.handle_UPDATE(TD, plpy, c)
-            elif event == 'INSERT':
-                self.handle_CREATE(TD, plpy, c)
-            else:
-                raise ValueError('unknown event : '+event )
-        except:
-            c.unbind_s()
-            raise
-
-        else:
-            c.unbind_s()
-
-    def handle_CREATE(self, TD, plpy, ldap_c):
+    def handle_INSERT(self, TD, plpy, ldap_c):
         ldap_key, sql_key = self.args['key_map'].items()[0]
         ldap_identify = {ldap_key: TD['new'][sql_key]}
         store_attr = self.args['ldap_store_key']
@@ -66,7 +69,7 @@ class StoreIfExists(PlPythonFunction):
         # Update is a create/delete in our case
         if old[sql_key] != new[sql_key]:
             if new[sql_key]:
-                self.handle_CREATE(TD, plpy, ldap_c)
+                self.handle_INSERT(TD, plpy, ldap_c)
             self.handle_DELETE(TD, plpy, ldap_c)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
@@ -87,7 +90,7 @@ class StoreIfExists(PlPythonFunction):
 
 
 
-class Copy2LDAP(PlPythonFunction):
+class Copy2LDAP(LDAPWriterFunction):
     """ This function will keep in sync a LDAPModel with the DB, updating it
     according an attributes map on each CREATE/UPDATE/DELETE/TRUNCATE.
     """
@@ -110,33 +113,7 @@ class Copy2LDAP(PlPythonFunction):
         }
         super(Copy2LDAP, self).__init__(**kwargs)
 
-    def get_ldap_model(self):
-        return LDAPModel(**(self.args['ldap_model']))
-
-    def call(self, TD, plpy):
-        creds = self.args['ldap_creds']
-        event = TD['event']
-
-        c = ldap.initialize(creds['host'])
-        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
-        try:
-            if event == 'DELETE':
-                self.handle_DELETE(TD, plpy, c)
-            elif event == 'UPDATE':
-                self.handle_UPDATE(TD, plpy, c)
-            elif event == 'INSERT':
-                self.handle_CREATE(TD, plpy, c)
-            else:
-                raise ValueError('unknown event : '+event )
-        except:
-            c.unbind_s()
-            raise
-
-        else:
-            c.unbind_s()
-
-
-    def handle_CREATE(self, TD, plpy, ldap_c):
+    def handle_INSERT(self, TD, plpy, ldap_c):
         ldap_attrs = self.ldap_data(TD['new'])
         plpy.log('creating an entry from SQL with values {}'.format(
                 str(ldap_attrs)))
@@ -173,7 +150,7 @@ class Copy2LDAP(PlPythonFunction):
         ldap_attrs = self.ldap_data(TD['old'])
         self.get_ldap_model().delete(ldap_c, ldap_attrs)
 
-    def handle_CREATE(self, TD, plpy, ldap_c):
+    def handle_INSERT(self, TD, plpy, ldap_c):
         ldap_attrs = self.ldap_data(TD['new'])
         plpy.log('creating an entry from SQL with values {}'.format(
                 str(ldap_attrs)))
@@ -220,7 +197,7 @@ class Copy2LDAP(PlPythonFunction):
 
 
 
-class Accumulate2LDAPField(PlPythonFunction):
+class Accumulate2LDAPField(LDAPWriterFunction):
     """ This function will store the result of a query in a multi-value
         attribute from a ldap model.
     """
@@ -237,33 +214,6 @@ class Accumulate2LDAPField(PlPythonFunction):
             'ldap_creds': ldap_creds
         }
         super(Accumulate2LDAPField, self).__init__(**kwargs)
-
-    def get_ldap_model(self):
-        return LDAPModel(**(self.args['ldap_model']))
-
-
-    def call(self, TD, plpy):
-        creds = self.args['ldap_creds']
-        event = TD['event']
-
-        c = ldap.initialize(creds['host'])
-        c.simple_bind_s(creds['bind_dn'], creds['bind_pw'])
-
-        try:
-            if event == 'DELETE':
-                self.handle_DELETE(TD, plpy, c)
-            elif event == 'UPDATE':
-                self.handle_UPDATE(TD, plpy, c)
-            elif event == 'INSERT':
-                self.handle_INSERT(TD, plpy, c)
-            else:
-                raise ValueError('unknown event : '+event )
-        except:
-            c.unbind_s()
-            raise
-
-        else:
-            c.unbind_s()
 
     def handle_INSERT(self, TD, plpy, ldap_c):
         field = self.args['ldap_field']
