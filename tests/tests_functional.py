@@ -75,6 +75,31 @@ class TestBinding(AbstractPgEnviron):
             log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
         self.assertIn(msg, log_result)
 
+    def test_exception_cancels_sql_op(self):
+        """ If sowething goes wrong, we want, for data consistency sake, to write
+        nothing into the db.
+        """
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+
+        logwarn_func = copiste.functions.LogWarn(message='unittest')
+        del logwarn_func.args['message']
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', logwarn_func.func_name())
+        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
+        bind.install()
+
+        # this command is supposed to trigger the trigger
+        self.con.commit()
+        with self.assertRaises(Exception):
+            self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
+
+        self.con.commit()
+
+        self.cur.execute("SELECT * FROM unittest_table")
+
+        self.assertEqual(self.cur.rowcount, 0)
+
     def test_log_action_uninstall(self):
         msg = 'unittest_'+randomstring()
         self.cur.execute('CREATE LANGUAGE plpythonu')
