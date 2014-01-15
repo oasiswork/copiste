@@ -129,6 +129,62 @@ class TestBinding(AbstractPgEnviron):
         self.assertNotIn(msg, log_result)
 
 
+    def test_log_action_initial_sync(self):
+        msg = 'unittest_'+randomstring()
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+
+        # 3 values
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
+        self.con.commit()
+        logwarn_func = copiste.functions.LogWarn(message=msg)
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', logwarn_func.func_name())
+        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
+        bind.install()
+        bind.initial_sync()
+
+        # this command is supposed to trigger the trigger
+        log_path = "/var/log/postgresql/postgresql-9.1-main.log"
+        log_cmd = 'vagrant ssh -c "tail {}"'.format(log_path)
+        log_result = subprocess.Popen(
+            log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
+        self.assertEqual(log_result.count(msg), 3)
+
+
+    def test_log_action_initial_sync_data_ok(self):
+        """ This one checks that the data is passed correctly to the function
+        """
+        msg = 'unittest_'+randomstring()
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+
+        # 3 values
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '42object')")
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '43object')")
+        self.cur.execute("INSERT INTO unittest_table VALUES (1, '44object')")
+        self.con.commit()
+        logwarn_func = copiste.functions.DebugParams(message=msg)
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', logwarn_func.func_name())
+        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
+        bind.install()
+        bind.initial_sync()
+
+        # this command is supposed to trigger the trigger
+        log_path = "/var/log/postgresql/postgresql-9.1-main.log"
+        log_cmd = 'vagrant ssh -c "tail {}"'.format(log_path)
+        log_result = subprocess.Popen(
+            log_cmd, shell=True, stdout=subprocess.PIPE).stdout.read()
+        self.assertEqual(log_result.count(msg), 3)
+        self.assertIn('42object', log_result)
+        self.assertIn('43object', log_result)
+        self.assertIn('44object', log_result)
+
+
+
 
 class TestFunctions(AbstractPgEnviron):
     def test_register_two_occurences(self):

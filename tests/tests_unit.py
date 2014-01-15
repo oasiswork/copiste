@@ -98,6 +98,33 @@ LANGUAGE plpythonu;
         self.assertEqual(ppf.sql_uninstall(), expected)
 
 
+    def test_plpythonfunction_sql_install_init(self):
+        ppf = PlPythonFunction()
+        expected = """
+CREATE FUNCTION copiste__tmpinit__plpythonfunction__{}(new unittest_table)
+RETURNS void
+AS
+$$
+  import copiste
+  import copiste.functions
+  import marshal
+  pyargs_marshalled = \"""ezA=\"""
+  pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
+  f = copiste.functions.PlPythonFunction(**pyargs)
+  f.call({{'new': new}}, plpy)
+$$
+LANGUAGE plpythonu;
+        """.format(ppf.uuid)
+        self.assertEqual(ppf.sql_install_init(table='unittest_table'), expected)
+
+
+    def test_plpythonfunction_sql_uninstall_init(self):
+        ppf = PlPythonFunction()
+        expected = 'DROP FUNCTION copiste__tmpinit__plpythonfunction__{}(new unittest_table)'.format(
+            ppf.uuid
+        )
+        self.assertEqual(ppf.sql_uninstall_init('unittest_table'), expected)
+
 
 class TestTrigger(TestCase):
     def test_writetrigger_enable(self):

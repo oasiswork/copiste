@@ -30,10 +30,24 @@ class PlPythonFunction(object):
         class_name = self.__class__.__name__
         return 'copiste__{}__{}'.format(class_name.lower(), self.uuid)
 
+    def init_func_name(self):
+        """ Generates the func_name used for temporary storage of the
+        data initialization function
+
+        This name is prefixed by "copiste__" and contains a random UUID.
+        """
+        class_name = self.__class__.__name__
+        return 'copiste__tmpinit__{}__{}'.format(class_name.lower(), self.uuid)
+
+
+    def _marshalled_args(self):
+        return marshal.dumps(self.args).encode('base64').strip()
+
+
     def sql_install(self):
         """ Stores the function inside the db. Actually stores only a stub,
         which will call the function. """
-        pyargs_marshalled = marshal.dumps(self.args).encode('base64').strip()
+        pyargs_marshalled = self._marshalled_args()
         sql = """
 CREATE FUNCTION {}()
 RETURNS TRIGGER
@@ -54,11 +68,45 @@ LANGUAGE plpythonu;
     def sql_uninstall(self):
         return 'DROP FUNCTION {}()'.format(self.func_name())
 
+    def sql_install_init(self, table):
+        sql = """
+CREATE FUNCTION {func_name}(new {table_name})
+RETURNS void
+AS
+$$
+  import copiste
+  import copiste.functions
+  import marshal
+  pyargs_marshalled = \"""{args_data}\"""
+  pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
+  f = copiste.functions.{pyfunc_name}(**pyargs)
+  f.call({{'new': new}}, plpy)
+$$
+LANGUAGE plpythonu;
+        """.format(
+            func_name  = self.init_func_name(),
+            args_data  = self._marshalled_args(),
+            pyfunc_name= self.__class__.__name__,
+            table_name = table
+        )
+        return sql
+
+    def sql_uninstall_init(self, table):
+        return 'DROP FUNCTION {}(new {})'.format(self.init_func_name(), table)
+
+
 class LogWarn(PlPythonFunction):
     """ Just a functions which prints something in postgres LOG
     """
     def call(self, TD, plpy):
         plpy.warning(self.args['message'])
+
+class DebugParams(PlPythonFunction):
+    """ Function that prints to sql log the content of its TD arg and a message
+    """
+    def call(self, TD, plpy):
+        plpy.warning(self.args['message']+' '+str(TD))
+
 
 class StoreIfExists(PlPythonFunction):
     def __init__(self, sql_test_attr, key_map,

@@ -23,3 +23,11 @@ class Bind:
         cur.execute(self.function.sql_uninstall())
 
 
+    def initial_sync(self):
+        cur = self.con.cursor()
+        cur.execute(self.function.sql_install_init(self.trigger.table))
+        cur.execute('SELECT * FROM {}'.format(self.trigger.table))
+        for row in cur.fetchall():
+            cur.callproc(self.function.init_func_name(), [row])
+
+        cur.execute(self.function.sql_uninstall_init(self.trigger.table))
