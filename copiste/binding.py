@@ -22,7 +22,6 @@ class Bind:
         cur.execute(self.trigger.sql_disable())
         cur.execute(self.function.sql_uninstall())
 
-
     def initial_sync(self):
         cur = self.con.cursor()
         cur.execute(self.function.sql_install_init(self.trigger.table))

@@ -4,6 +4,10 @@ import unittest
 import copiste.ldapsync
 import time
 
+import copiste.functions.base
+
+
+
 from tests_functional import AbstractPgEnviron
 
 def ldap_recursive_delete_s(con, base_dn):
@@ -274,7 +278,7 @@ class LDAPSync(AbstractLDAPPostgresBinding):
         self.sql_update_email = \
             "UPDATE unittest_table set mail='updated@bar.tld' WHERE (id=1)"
 
-        sync_ldap = copiste.functions.Copy2LDAP(
+        sync_ldap = copiste.functions.base.Copy2LDAP(
             attrs_map  = self.attrmap,
             ldap_model = self.ldap_user_model,
             ldap_creds = self.creds
@@ -352,7 +356,7 @@ class LDAPSyncWithDynAttr(AbstractLDAPPostgresBinding):
         self.cur.execute(
             'CREATE TABLE unittest_alias (user_id INT, mail VARCHAR(100))')
 
-        sync_ldap = copiste.functions.Copy2LDAP(
+        sync_ldap = copiste.functions.base.Copy2LDAP(
             attrs_map  = self.attrmap,
             ldap_model = self.ldap_user_model,
             ldap_creds = self.creds,
@@ -413,7 +417,7 @@ class LDAPAccumulate(AbstractLDAPPostgresBinding):
             "UPDATE unittest_alias set mail='foo2updated@bar.tld' "+\
             "WHERE (user_id=1)"
 
-        accumulate_aliases = copiste.functions.Accumulate2LDAPField(
+        accumulate_aliases = copiste.functions.base.Accumulate2LDAPField(
             ldap_field = 'mail',
             keys_map   = {'uid': 'user_id'},
             ldap_model = self.ldap_user_model,
@@ -519,7 +523,7 @@ class TestStoreIfExists(AbstractLDAPPostgresBinding):
         self.ldap_c.add_s('uid=2,ou=users,dc=foo,dc=bar',
                           ldap.modlist.addModlist(sample_user2))
 
-        sync_ldap = copiste.functions.StoreIfExists(
+        sync_ldap = copiste.functions.base.StoreIfExists(
             sql_test_attr  = 'owner_id',
             ldap_store_key = 'objectClass',
             ldap_store_val = 'bootableDevice', # arbitrary, IRL would be (thingOwner)

@@ -11,7 +11,7 @@ del os.environ['COPISTE_SETTINGS_MODULE']
 import psycopg2
 import copiste
 import copiste.sql
-import copiste.functions
+import copiste.functions.base
 import copiste.binding
 
 def randomstring():
@@ -60,7 +60,7 @@ class TestBinding(AbstractPgEnviron):
         self.cur.execute('CREATE LANGUAGE plpythonu')
 
 
-        logwarn_func = copiste.functions.LogWarn(message=msg)
+        logwarn_func = copiste.functions.base.LogWarn(message=msg)
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
@@ -81,7 +81,7 @@ class TestBinding(AbstractPgEnviron):
         """
         self.cur.execute('CREATE LANGUAGE plpythonu')
 
-        logwarn_func = copiste.functions.LogWarn(message='unittest')
+        logwarn_func = copiste.functions.base.LogWarn(message='unittest')
         del logwarn_func.args['message']
 
         trigger = copiste.sql.WriteTrigger(
@@ -105,7 +105,7 @@ class TestBinding(AbstractPgEnviron):
         self.cur.execute('CREATE LANGUAGE plpythonu')
         self.con.commit()
 
-        logwarn_func = copiste.functions.LogWarn(message=msg)
+        logwarn_func = copiste.functions.base.LogWarn(message=msg)
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', 'warn_on_write')
@@ -138,7 +138,7 @@ class TestBinding(AbstractPgEnviron):
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
         self.con.commit()
-        logwarn_func = copiste.functions.LogWarn(message=msg)
+        logwarn_func = copiste.functions.base.LogWarn(message=msg)
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
@@ -165,7 +165,7 @@ class TestBinding(AbstractPgEnviron):
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '43object')")
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '44object')")
         self.con.commit()
-        logwarn_func = copiste.functions.DebugParams(message=msg)
+        logwarn_func = copiste.functions.base.DebugParams(message=msg)
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
@@ -189,8 +189,8 @@ class TestBinding(AbstractPgEnviron):
 class TestFunctions(AbstractPgEnviron):
     def test_register_two_occurences(self):
         self.cur.execute('CREATE LANGUAGE plpythonu')
-        func1 = copiste.functions.LogWarn(message='msg1')
-        func2 = copiste.functions.LogWarn(message='msg1')
+        func1 = copiste.functions.base.LogWarn(message='msg1')
+        func2 = copiste.functions.base.LogWarn(message='msg1')
 
         self.cur.execute(func1.sql_install())
         self.cur.execute(func2.sql_install())

@@ -8,7 +8,7 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 from unittest import TestCase
 from copiste.sql import *
 from copiste.models import SQLModel
-from copiste.functions import *
+from copiste.functions.base import *
 import sys
 
 import tempfile
@@ -79,11 +79,11 @@ RETURNS TRIGGER
 AS
 $$
   import copiste
-  import copiste.functions
+  import copiste.functions.base
   import marshal
   pyargs_marshalled = \"""ezA=\"""
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
-  f = copiste.functions.PlPythonFunction(**pyargs)
+  f = copiste.functions.base.PlPythonFunction(**pyargs)
   return f.call(TD, plpy)
 $$
 LANGUAGE plpythonu;
@@ -106,11 +106,11 @@ RETURNS void
 AS
 $$
   import copiste
-  import copiste.functions
+  import copiste.functions.base
   import marshal
   pyargs_marshalled = \"""ezA=\"""
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
-  f = copiste.functions.PlPythonFunction(**pyargs)
+  f = copiste.functions.base.PlPythonFunction(**pyargs)
   f.call({{'new': new}}, plpy)
 $$
 LANGUAGE plpythonu;
