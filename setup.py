@@ -23,5 +23,6 @@ setup(name='copiste',
       author_email='jdelalande@oasiswork.fr',
       url='https://dev.oasiswork.fr/projects/copiste/',
       packages=['copiste'],
-      install_requires=['psycopg2']
+      install_requires=['psycopg2', 'python-ldap']
+      scripts=['bin/copiste']
       )
