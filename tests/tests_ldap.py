@@ -287,8 +287,8 @@ class LDAPSync(AbstractLDAPPostgresBinding):
             name      = 'sync_users'
         )
 
-        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, sync_ldap)
+        bind.install(self.con)
 
     def test_sync_create(self):
         self.cur.execute(self.sql_insert)
@@ -366,8 +366,8 @@ class LDAPSyncWithDynAttr(AbstractLDAPPostgresBinding):
             name      = 'sync_users'
         )
 
-        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, sync_ldap)
+        bind.install(self.con)
 
     def test_sync_create(self):
         self.cur.execute(self.sql_insert_alias)
@@ -427,8 +427,8 @@ class LDAPAccumulate(AbstractLDAPPostgresBinding):
             name      = 'accumulate_mail_aliases'
         )
 
-        bind = copiste.binding.Bind(trigger, accumulate_aliases, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, accumulate_aliases)
+        bind.install(self.con)
 
     def test_insert(self):
         self.cur.execute(self.sql_insert)
@@ -535,8 +535,8 @@ class TestStoreIfExists(AbstractLDAPPostgresBinding):
             name      = 'sync_owner_flag'
         )
 
-        bind = copiste.binding.Bind(trigger, sync_ldap, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, sync_ldap)
+        bind.install(self.con)
 
     def test_insert(self):
         self.cur.execute(self.sql_insert_a_thing)

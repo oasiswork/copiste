@@ -64,8 +64,8 @@ class TestBinding(AbstractPgEnviron):
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
-        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, logwarn_func)
+        bind.install(self.con)
 
         # this command is supposed to trigger the trigger
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
@@ -86,8 +86,8 @@ class TestBinding(AbstractPgEnviron):
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
-        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
-        bind.install()
+        bind = copiste.binding.Bind(trigger, logwarn_func)
+        bind.install(self.con)
 
         # this command is supposed to trigger the trigger
         self.con.commit()
@@ -109,16 +109,16 @@ class TestBinding(AbstractPgEnviron):
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', 'warn_on_write')
-        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
+        bind = copiste.binding.Bind(trigger, logwarn_func)
 
         # Cannot uninstall a not installed function
         with self.assertRaises(psycopg2.ProgrammingError):
-            bind.uninstall()
+            bind.uninstall(self.con)
         self.con.commit()
 
-        bind.install()
+        bind.install(self.con)
         # this time it should succeed
-        bind.uninstall()
+        bind.uninstall(self.con)
 
         # the trigger should not be triggered
         self.cur.execute("INSERT INTO unittest_table VALUES (1, '42')")
@@ -142,9 +142,9 @@ class TestBinding(AbstractPgEnviron):
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
-        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
-        bind.install()
-        bind.initial_sync()
+        bind = copiste.binding.Bind(trigger, logwarn_func)
+        bind.install(self.con)
+        bind.initial_sync(self.con)
 
         # this command is supposed to trigger the trigger
         log_path = "/var/log/postgresql/postgresql-9.1-main.log"
@@ -169,9 +169,9 @@ class TestBinding(AbstractPgEnviron):
 
         trigger = copiste.sql.WriteTrigger(
             'unittest_table', logwarn_func.func_name())
-        bind = copiste.binding.Bind(trigger, logwarn_func, self.con)
-        bind.install()
-        bind.initial_sync()
+        bind = copiste.binding.Bind(trigger, logwarn_func)
+        bind.install(self.con)
+        bind.initial_sync(self.con)
 
         # this command is supposed to trigger the trigger
         log_path = "/var/log/postgresql/postgresql-9.1-main.log"

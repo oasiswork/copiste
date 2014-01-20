@@ -14,12 +14,11 @@ ldap_credentials = {
     "bind_pw"  : 'password'
 }
 
-db_con = psycopg2.connect(
-    host     = "localhost",
-    user     = "postgres",
-    password = "",
-    database = "manutest"
-)
+pg_credentials = {
+    'host'     : "localhost",
+    'user'     : "postgres",
+    'database' : "manutest"
+}
 
 #### FUNCTIONS ####
 
@@ -55,6 +54,6 @@ on_write_user = copiste.sql.WriteTrigger(
 #### BINDINGS ####
 
 bindings = [
-    copiste.binding.Bind(on_write_user, sync_ldap, db_con)
+    copiste.binding.Bind(on_write_user, sync_ldap)
 ]
 
