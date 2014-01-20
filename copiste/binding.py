@@ -1,4 +1,3 @@
-from copiste.settings import SETTINGS
 
 class Bind:
     """ A bind is an association between a trigger and a function.
@@ -6,7 +5,6 @@ class Bind:
     def __init__(self, trigger, function, connection):
         self.trigger = trigger
         self.function = function
-        self.settings = SETTINGS
         self.con = connection
 
     def install(self):
