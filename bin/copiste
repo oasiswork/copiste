@@ -32,17 +32,23 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     MANIFEST = imp.load_source('_manifest', args.manifest_path)
-    pgsql_pass = getpass.getpass('{}@{} password: ')
+    #pgsql_pass = getpass.getpass('{}@{} password: '.format())
 
     if args.subcommand == 'install':
         for binding in MANIFEST.bindings:
             print 'installing binding {}'.format(binding)
             binding.install()
+
     elif args.subcommand == 'uninstall':
+        # FIXME: won't do it with random uuid
         for binding in MANIFEST.bindings:
             print 'installing binding {}'.format(binding)
             binding.uninstall()
 
-    elif args.subcommund == 'init':
+    elif args.subcommand == 'init':
         for binding in MANIFEST.bindings:
             print 'loading initial data for binding {}'.format(binding)
+            binding.initial_sync()
+
+    binding.con.commit()
+    binding.con.close()
