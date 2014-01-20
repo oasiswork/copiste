@@ -111,7 +111,7 @@ $$
   pyargs_marshalled = \"""ezA=\"""
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
   f = copiste.functions.base.PlPythonFunction(**pyargs)
-  f.call({{'new': new}}, plpy)
+  f.call({{'new': new, 'event': 'INSERT'}}, plpy)
 $$
 LANGUAGE plpythonu;
         """.format(ppf.uuid)
