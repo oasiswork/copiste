@@ -1,9 +1,13 @@
-Copiste : realtime Postgre → LDAP replication
-=============================================
+Copiste : realtime Postgre → whatyouwant replication
+====================================================
 
-- framework to write PostgreSQL to LDAP replication rules
+- Python framework to write,  PostgreSQL to whatever-your-want replication rules
+  (trigger-based), you can also use it for base notification on events
+- included functions for LDAP replication
 - flexible rules (more than just copying fields)
-- handles (un)installing triggers/functions in PostgreSQL
+- `copiste` script handles (un)installing triggers/functions in PostgreSQL
+- handles the replication of the data that was inside the db before you install
+  the hooks
 
 Installing
 ----------
@@ -36,8 +40,107 @@ Then
 	$ ./setup.py install
 
 
+Writting your manifest
+---------------------
+
+Your manifest defines bindings between thos two components :
+
+* **SQL triggers** (a type of event on a specific table)
+* **Function** : what is called on trigger
+
+The couple of those two is called a `binding`.
+
+A *Function* can do pretty much anything you want. Several LDAP Writing functions
+are included, look at `tests` to know how to use them.
+
+### What you can do with a binding ###
+
+* 'install it' function is stored in db, and trigger is configured to call it
+* 'uninstall it' function and trigger are removed from the table
+* 'initialize it' the trigger is replayed for each row already existing in the
+  table, that's meant to be done right after you install the binding
+
+### Manifest syntax ###
+
+A *Manifest* is a declarative-style python script you store and name as you
+want, it sould defines two variables (at least):
+
+* *bindings* a python list of bindings
+* *pg_credentials* : a python dict with informations to connec to to your DB.
+   Keys are `host`, `user`, `database`, you can also specify `password`, but
+   it's recommended not to do so:  you will be prompted at run-time.
+
+
+Here is a minimal manifest.
+
+    import copiste.functions.base
+	import copiste.sql
+	import copiste.bindings
+
+	pg_credentials =  {
+        'host'     : "localhost",
+        'user'     : "postgres",
+        'database' : "manutest"
+    }
+
+	bindings = [
+		copiste.binding.Bind(
+		    copiste.sql.WriteTrigger(
+			    sql_table = 'funky_table',
+			    name      = 'on_funky_write'
+			),
+			copiste.functions.base.LogWarn(msg='Artchung !')
+		)
+	]
+
+It writes *'Artchung !'* in postgres files each time you write something in the
+table `funky_table`.
+
+A *manifest* is meant to be used by the **copiste** command-line tool…
+
+Using copiste
+-------------
+
+Copiste sets up realtime replication once enabled and let you "replay" the
+replication against the data that is already in your db to *initialize* right
+after you've install it.
+
+
+Then you have to write your manifest, let's say it's `manifest.py`
+Load it into PostgreSQL with
+
+    $ copiste install manifest.py
+
+Each time you change something in manifest.py you have to run
+
+	$ copiste uninstall manifest.py
+	$ copiste install manifest.py
+
+… to push the modifications into the db.
+
+
+Initial data
+------------
+
+Maybe you had data in your PostgreSQL base before you installed copiste. There
+is a mechanism to "replay" the replication triggers on existing data.
+
+    $ copiste init manifest.py
+
+Note that the result of this command might not be idempotent, so if you think
+your replicated data is screwed, clear it totally by yourself before you issue
+`init`.
+
+Limitations
+-----------
+
+LDAP has no support for transactions and python-ldap has no support of locks, so
+it means no support for lock operations.
+
 Testing
 -------
+
+That part is for developpers tests.
 
 You just have to install psycopg2 on any machine (no system-wide install), to go
 for tests.
@@ -62,29 +165,3 @@ and to set it up
 Then you can run functional tests :
 
     $ python -m unittest tests.tests_functional
-
-Getting started
----------------
-
-**NOTICE: that part is not ready right now, those instructions won't work.**
-
-    ./setup.py install
-
-Then you have to write your manifest, let's say it's `manifest.py`
-Load it into PostgreSQL with
-
-    $ copiste install manifest.py
-
-Each time you change something in manifest.py you have to run
-
-	$ copiste update manifest.py
-
-… to push the modifications into the db.
-
-
-
-Limitations
------------
-
-LDAP has no support for transactions and python-ldap has no support of locks, so
-it means no support for lock operations.
