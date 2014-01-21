@@ -32,6 +32,11 @@ class LDAPWriterFunction(PlPythonFunction):
 
 
 class StoreIfExists(LDAPWriterFunction):
+    """ Store an attr-> value in LDAP if our model is mentioned in a table.
+
+    If one or more row(s) related to our model exists in SQL table, set a given
+    attribute to a given value; otherwise, remove that attributes.
+    """
     def __init__(self, sql_test_attr, key_map,
                  ldap_model,ldap_store_key, ldap_store_val, ldap_creds):
 
