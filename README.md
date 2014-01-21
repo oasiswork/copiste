@@ -1,13 +1,18 @@
 Copiste : realtime Postgre → whatyouwant replication
 ====================================================
 
-- Python framework to write,  PostgreSQL to whatever-your-want replication rules
-  (trigger-based), you can also use it for base notification on events
-- included functions for LDAP replication
+
+
+Copiste is a python framework to write pg to whatever-your-want trigger-based
+  replication, handling all the assle of mainting source code in database and
+  passing arbitrary python data to those functions.
+
 - flexible rules (more than just copying fields)
+- included functions for LDAP replication
 - `copiste` script handles (un)installing triggers/functions in PostgreSQL
 - handles the replication of the data that was inside the db before you install
-  the hooks
+  the hooks (*data initialization*)
+- written for replication but can be used for bare notification.
 
 Installing
 ----------
@@ -101,13 +106,13 @@ A *manifest* is meant to be used by the **copiste** command-line tool…
 Using copiste
 -------------
 
-Copiste sets up realtime replication once enabled and let you "replay" the
-replication against the data that is already in your db to *initialize* right
-after you've install it.
+Copiste sets up realtime replication once it's enabled and let you "replay" the
+replication against the data that is already in your db to *initialize* your
+replica.
 
+Once your *manifest* is written (let's say in `manifest.py`):
 
-Then you have to write your manifest, let's say it's `manifest.py`
-Load it into PostgreSQL with
+Load it into *PostgreSQL* and enable triggers with
 
     $ copiste install manifest.py
 
@@ -117,7 +122,6 @@ Each time you change something in manifest.py you have to run
 	$ copiste install manifest.py
 
 … to push the modifications into the db.
-
 
 Initial data
 ------------
@@ -131,11 +135,6 @@ Note that the result of this command might not be idempotent, so if you think
 your replicated data is screwed, clear it totally by yourself before you issue
 `init`.
 
-Limitations
------------
-
-LDAP has no support for transactions and python-ldap has no support of locks, so
-it means no support for lock operations.
 
 Testing
 -------
@@ -161,7 +160,24 @@ Prerequisite is to have vagrant installed :
 and to set it up
 
     $ vagrant up
+    $ vagrant provision
 
 Then you can run functional tests :
 
     $ python -m unittest tests.tests_functional
+    $ python -m unittest tests.tests_ldap
+
+
+You can also run everything (*unit+functional*):
+
+    $ python -m unittest discover
+
+
+Limitations
+-----------
+
+LDAP has no support for transactions and python-ldap has no support of locks, so
+it means no support for lock operations.
+
+You can use only one *copiste* *manifest* with a given database, using several
+ones is likely to mess it up.
