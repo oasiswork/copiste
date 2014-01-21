@@ -21,7 +21,6 @@ class Bind:
         cur.execute(self.trigger.sql_disable())
         cur.execute(self.function.sql_uninstall())
         cur.execute(self.function.sql_remove_args())
-        cur.execute(self.function.sql_drop_pyargs_table())
 
     def initial_sync(self, con):
         cur = con.cursor()
