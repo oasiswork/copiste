@@ -61,7 +61,7 @@ $$
   f = copiste.functions.{pymodule_name}.{class_name}(**pyargs)
   return f.call(TD, plpy)
 $$
-LANGUAGE plpythonu;
+LANGUAGE plpythonu SECURITY DEFINER;
         """.format(func_name          = self.func_name(),
                    pymodule_name      = self.pymodule_name(),
                    class_name         = self.__class__.__name__)

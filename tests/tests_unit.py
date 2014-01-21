@@ -87,9 +87,8 @@ $$
   f = copiste.functions.base.PlPythonFunction(**pyargs)
   return f.call(TD, plpy)
 $$
-LANGUAGE plpythonu;
+LANGUAGE plpythonu SECURITY DEFINER;
         """.format(funcname = 'copiste__plpythonfunction__'+ppf.uuid)
-
         self.assertEqual(ppf.sql_install(), expected)
 
     def test_plpythonfunction_sql_uninstall(self):
