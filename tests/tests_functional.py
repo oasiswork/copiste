@@ -144,8 +144,11 @@ class TestBinding(AbstractPgEnviron):
             'unittest_table', logwarn_func.func_name())
         bind = copiste.binding.Bind(trigger, logwarn_func)
         bind.install(self.con)
-        bind.initial_sync(self.con)
+        self.con.commit()
+        #self.cur.execute('SELECT * from copiste_pyargs;')
+        #print '>>>',self.cur.fetchall(), '<<<'
 
+        bind.initial_sync(self.con)
         # this command is supposed to trigger the trigger
         log_path = "/var/log/postgresql/postgresql-9.1-main.log"
         log_cmd = 'vagrant ssh -c "tail {}"'.format(log_path)

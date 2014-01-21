@@ -10,6 +10,8 @@ class Bind:
         """Store the trigger and the function inside the db"""
         cur = con.cursor()
         pg_funcname = self.function.func_name()
+        cur.execute(self.function.sql_create_pyargs_table())
+        cur.execute(self.function.sql_insert_args())
         cur.execute(self.function.sql_install())
         cur.execute(self.trigger.sql_enable(pg_funcname))
 
@@ -18,6 +20,8 @@ class Bind:
         cur = con.cursor()
         cur.execute(self.trigger.sql_disable())
         cur.execute(self.function.sql_uninstall())
+        cur.execute(self.function.sql_remove_args())
+        cur.execute(self.function.sql_drop_pyargs_table())
 
     def initial_sync(self, con):
         cur = con.cursor()

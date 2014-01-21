@@ -74,20 +74,22 @@ class TestFunctions(TestCase):
     def test_plpythonfunction_sql_install(self):
         ppf = PlPythonFunction()
         expected = """
-CREATE FUNCTION copiste__plpythonfunction__{}()
+CREATE FUNCTION {funcname}()
 RETURNS TRIGGER
 AS
 $$
   import copiste
   import copiste.functions.base
   import marshal
-  pyargs_marshalled = \"""ezA=\"""
+  sql_pyargs = "SELECT data FROM copiste_pyargs WHERE funcname = '{funcname}'"
+  pyargs_marshalled = plpy.execute(sql_pyargs)[0]['data']
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
   f = copiste.functions.base.PlPythonFunction(**pyargs)
   return f.call(TD, plpy)
 $$
 LANGUAGE plpythonu;
-        """.format(ppf.uuid)
+        """.format(funcname = 'copiste__plpythonfunction__'+ppf.uuid)
+
         self.assertEqual(ppf.sql_install(), expected)
 
     def test_plpythonfunction_sql_uninstall(self):
@@ -97,24 +99,32 @@ LANGUAGE plpythonu;
         )
         self.assertEqual(ppf.sql_uninstall(), expected)
 
+    def test_plpythonfunction_sql_insert_args(self):
+        ppf = PlPythonFunction()
+        expected ="""
+INSERT INTO copiste_pyargs(funcname, data) VALUES('{}', '{}');
+""".format('copiste__plpythonfunction__'+ppf.uuid, 'ezA='  )
+        self.assertEqual(ppf.sql_insert_args(), expected)
+
 
     def test_plpythonfunction_sql_install_init(self):
         ppf = PlPythonFunction()
         expected = """
-CREATE FUNCTION copiste__tmpinit__plpythonfunction__{}(new unittest_table)
+CREATE FUNCTION copiste__tmpinit__plpythonfunction__{uuid}(new unittest_table)
 RETURNS void
 AS
 $$
   import copiste
   import copiste.functions.base
   import marshal
-  pyargs_marshalled = \"""ezA=\"""
+  sql_pyargs = "SELECT data FROM copiste_pyargs WHERE funcname = 'copiste__plpythonfunction__{uuid}'"
+  pyargs_marshalled = plpy.execute(sql_pyargs)[0]['data']
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
   f = copiste.functions.base.PlPythonFunction(**pyargs)
   f.call({{'new': new, 'event': 'INSERT'}}, plpy)
 $$
 LANGUAGE plpythonu;
-        """.format(ppf.uuid)
+        """.format(uuid=ppf.uuid)
         self.assertEqual(ppf.sql_install_init(table='unittest_table'), expected)
 
 

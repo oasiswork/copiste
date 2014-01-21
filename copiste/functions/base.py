@@ -48,22 +48,34 @@ class PlPythonFunction(object):
         which will call the function. """
         pyargs_marshalled = self._marshalled_args()
         sql = """
-CREATE FUNCTION {}()
+CREATE FUNCTION {func_name}()
 RETURNS TRIGGER
 AS
 $$
   import copiste
-  import copiste.functions.{}
+  import copiste.functions.{pymodule_name}
   import marshal
-  pyargs_marshalled = \"""{}\"""
+  sql_pyargs = "SELECT data FROM copiste_pyargs WHERE funcname = '{func_name}'"
+  pyargs_marshalled = plpy.execute(sql_pyargs)[0]['data']
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
-  f = copiste.functions.{}.{}(**pyargs)
+  f = copiste.functions.{pymodule_name}.{class_name}(**pyargs)
   return f.call(TD, plpy)
 $$
 LANGUAGE plpythonu;
-        """.format(self.func_name(), self.pymodule_name(),
-                   pyargs_marshalled, self.pymodule_name(),
-                   self.__class__.__name__)
+        """.format(func_name          = self.func_name(),
+                   pymodule_name      = self.pymodule_name(),
+                   class_name         = self.__class__.__name__)
+        return sql
+
+    def sql_insert_args(self):
+        sql = """
+INSERT INTO copiste_pyargs(funcname, data) VALUES('{}', '{}');
+""".format(self.func_name(), self._marshalled_args())
+        return sql
+
+    def sql_remove_args(self):
+        sql = "DELETE FROM copiste_pyargs WHERE funcname = '{}';".format(
+            self.func_name())
         return sql
 
     def sql_uninstall(self):
@@ -71,21 +83,23 @@ LANGUAGE plpythonu;
 
     def sql_install_init(self, table):
         sql = """
-CREATE FUNCTION {func_name}(new {table_name})
+CREATE FUNCTION {init_func_name}(new {table_name})
 RETURNS void
 AS
 $$
   import copiste
   import copiste.functions.{pymodule}
   import marshal
-  pyargs_marshalled = \"""{args_data}\"""
+  sql_pyargs = "SELECT data FROM copiste_pyargs WHERE funcname = '{func_name}'"
+  pyargs_marshalled = plpy.execute(sql_pyargs)[0]['data']
   pyargs = marshal.loads(pyargs_marshalled.decode('base64'))
   f = copiste.functions.{pymodule}.{pyfunc_name}(**pyargs)
   f.call({{'new': new, 'event': 'INSERT'}}, plpy)
 $$
 LANGUAGE plpythonu;
         """.format(
-            func_name  = self.init_func_name(),
+            init_func_name  = self.init_func_name(),
+            func_name = self.func_name(),
             args_data  = self._marshalled_args(),
             pyfunc_name= self.__class__.__name__,
             table_name = table,
@@ -95,6 +109,12 @@ LANGUAGE plpythonu;
 
     def sql_uninstall_init(self, table):
         return 'DROP FUNCTION {}(new {})'.format(self.init_func_name(), table)
+
+    def sql_create_pyargs_table(self):
+        return 'CREATE TABLE IF NOT EXISTS copiste_pyargs (funcname TEXT UNIQUE, data TEXT);'
+
+    def sql_drop_pyargs_table(self):
+        return 'DROP TABLE IF EXISTS copiste_pyargs'
 
 
 class LogWarn(PlPythonFunction):
