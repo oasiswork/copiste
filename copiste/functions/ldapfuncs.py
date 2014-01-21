@@ -56,7 +56,10 @@ class StoreIfExists(LDAPWriterFunction):
         store_attr = self.args['ldap_store_key']
         store_val = self.args['ldap_store_val']
 
-        self.get_ldap_model().modify(
+        model = self.get_ldap_model()
+        plpy.log('setting "{}" for {} from SQL'.format(
+                store_attr, model.get_dn(ldap_identify)))
+        model.modify(
             ldap_c, ldap_identify,
             {store_attr: store_val},
             accumulate=True)
@@ -85,7 +88,10 @@ class StoreIfExists(LDAPWriterFunction):
 
         has_match = plpy.execute(sql)[0].values()[0]
         if not has_match:
-            self.get_ldap_model().remove_from_attr(
+            model = self.get_ldap_model()
+            plpy.log('setting "{}" for {} from SQL'.format(
+                    store_attr, model.get_dn(ldap_identify_old)))
+            model.remove_from_attr(
                 ldap_c, ldap_identify_old, store_attr, store_val)
 
 
@@ -114,11 +120,11 @@ class Copy2LDAP(LDAPWriterFunction):
         super(Copy2LDAP, self).__init__(**kwargs)
 
     def handle_INSERT(self, TD, plpy, ldap_c):
+        model = self.get_ldap_model()
         ldap_attrs = self.ldap_data(TD['new'])
-        plpy.log('creating an entry from SQL with values {}'.format(
-                str(ldap_attrs)))
+        plpy.log('creating {} from SQL'.format(model.get_dn(ldap_attrs)))
         self.process_dyn_attrs(ldap_attrs, plpy, TD['new'])
-        self.get_ldap_model().create(ldap_c, ldap_attrs)
+        model.create(ldap_c, ldap_attrs)
 
 
     def handle_UPDATE(self, TD, plpy, ldap_c):
@@ -144,18 +150,15 @@ class Copy2LDAP(LDAPWriterFunction):
                     diff[k] = v
 
             self.process_dyn_attrs(new_ldap_attrs, plpy, TD['new'])
-            self.get_ldap_model().modify(ldap_c, old_ldap_attrs, new_ldap_attrs)
+            model = self.get_ldap_model()
+            plpy.log('updating {} from SQL'.format(model.get_dn(old_ldap_attrs)))
+            model.modify(ldap_c, old_ldap_attrs, new_ldap_attrs)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
         ldap_attrs = self.ldap_data(TD['old'])
-        self.get_ldap_model().delete(ldap_c, ldap_attrs)
-
-    def handle_INSERT(self, TD, plpy, ldap_c):
-        ldap_attrs = self.ldap_data(TD['new'])
-        plpy.log('creating an entry from SQL with values {}'.format(
-                str(ldap_attrs)))
-        self.process_dyn_attrs(ldap_attrs, plpy, TD['new'])
-        self.get_ldap_model().create(ldap_c, ldap_attrs)
+        model = self.get_ldap_model()
+        plpy.log('deleting {} from SQL'.format(model.get_dn(ldap_attrs)))
+        model.delete(ldap_c, ldap_attrs)
 
     def ldap_data(self, sql_data):
         """ Transforms a SQL row into a dict of attributes ready for LDAP use.
@@ -229,6 +232,7 @@ class Accumulate2LDAPField(LDAPWriterFunction):
                 {field : previous_values},
                 {field: new_values}
             )
+            plpy.log('adding a "{}" value to {} from SQL'.format(field, dn))
             ldap_c.modify_s(dn, ldif)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
@@ -243,6 +247,7 @@ class Accumulate2LDAPField(LDAPWriterFunction):
             {field : previous_values},
             {field: new_values}
         )
+        plpy.log('removing a "{}" value from {} from SQL'.format(field, dn))
         ldap_c.modify_s(dn, ldif)
 
     def handle_UPDATE(self, TD, plpy, ldap_c):
@@ -262,6 +267,7 @@ class Accumulate2LDAPField(LDAPWriterFunction):
                 {field: previous_values},
                 {field: new_values}
             )
+            plpy.log('modifying a "{}" value in {} from SQL'.format(field, dn))
             ldap_c.modify_s(dn, ldif)
 
     def get_accumulator_list(self, ldap_c, sql_data):

@@ -155,15 +155,15 @@ class LDAPModel:
         @param attrs    all the attrs for the new object, you should ommit dn,
                         it will be computed from self.dn
         """
-        dn = self.dn.format(**attrs)
         all_attrs = self.static_attrs.copy()
         all_attrs.update(attrs)
 
         ldif = ldap.modlist.addModlist(all_attrs)
 
         try:
-            res = ldap_con.add_s(dn, ldif)
+            res = ldap_con.add_s(self.get_dn(attrs), ldif)
         except ldap.LDAPError, e:
             raise LDAPDataError('LDAP Error: {}'.format(str(e)))
 
-
+    def get_dn(self, attrs):
+        return self.dn.format(**attrs)
