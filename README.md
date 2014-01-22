@@ -75,6 +75,9 @@ want, it sould defines two variables (at least):
    Keys are `host`, `user`, `database`, you can also specify `password`, but
    it's recommended not to do so:  you will be prompted at run-time.
 
+Optionally, if you use ldap functions, you can define a *ldap_credentials*
+dict. Like for *pg_credentials*, you may not define the *bind_pw*, it will be
+prompted.
 
 Here is a minimal manifest.
 

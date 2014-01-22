@@ -11,7 +11,6 @@ import psycopg2
 ldap_credentials = {
     "host"     : 'ldap://localhost:389',
     "bind_dn"  : 'cn=admin,dc=foo,dc=bar',
-    "bind_pw"  : 'password'
 }
 
 pg_credentials = {

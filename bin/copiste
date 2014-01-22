@@ -56,6 +56,13 @@ if __name__ == '__main__':
         prompt = '{user}@{host} postgres password: '.format(**pg_credentials)
         pg_credentials['password'] = getpass.getpass(prompt)
 
+    if hasattr(MANIFEST, 'ldap_credentials'):
+        if not MANIFEST.ldap_credentials.has_key('bind_pw'):
+            prompt = '{bind_dn} ldap password: '.format(
+                **MANIFEST.ldap_credentials)
+            bind_pw = getpass.getpass(prompt)
+            MANIFEST.ldap_credentials['bind_pw'] = bind_pw
+
     pg_con = psycopg2.connect(**pg_credentials)
 
     if args.subcommand == 'install':
