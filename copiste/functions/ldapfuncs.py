@@ -136,6 +136,8 @@ class Copy2LDAP(LDAPWriterFunction):
         old_ldap_attrs = self.ldap_data(TD['old'])
         new_ldap_attrs = self.ldap_data(TD['new'])
 
+        self.process_dyn_attrs(new_ldap_attrs, plpy, TD['new'])
+
         # There are cases where a MODIFY does not imply a LDAP change
         if old_ldap_attrs != new_ldap_attrs:
             added_attrs = set(new_ldap_attrs.keys()) - set(old_ldap_attrs.keys())
@@ -154,10 +156,9 @@ class Copy2LDAP(LDAPWriterFunction):
                     (old_ldap_attrs[k] != new_ldap_attrs[k])):
                     diff[k] = v
 
-            self.process_dyn_attrs(new_ldap_attrs, plpy, TD['new'])
             model = self.get_ldap_model()
             plpy.log('updating {} from SQL'.format(model.get_dn(old_ldap_attrs)))
-            model.modify(ldap_c, old_ldap_attrs, new_ldap_attrs)
+            model.modify(ldap_c, old_ldap_attrs, diff)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
         ldap_attrs = self.ldap_data(TD['old'])
@@ -234,7 +235,6 @@ class Accumulate2LDAPField(LDAPWriterFunction):
         super(Accumulate2LDAPField, self).__init__(**kwargs)
 
     def handle_INSERT(self, TD, plpy, ldap_c):
-        print 'XXXXXXXXXXXXX EXECUTING', TD, plpy
         field = self.args['ldap_field']
         new_row = TD['new']
         new_val = new_row[field]
