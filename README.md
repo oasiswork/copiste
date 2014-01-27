@@ -31,7 +31,7 @@ You can see two different machines in the install/use process :
 Note that you have to install it *outside virtualenvs* so that PostgreSQL can
 load it from stored functions.
 
-### Install on *remote* ###
+### Install on *control* ###
 
 You may install everything in virtualenv if you wish
 
