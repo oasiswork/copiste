@@ -1,27 +1,5 @@
 import marshal
 
-class Join:
-    """ A SQL Join"""
-    def __init__(self, table, fields):
-        """ A SQL Join
-
-        @param table the table to Join
-        @param fields a list of couples : fields to join (AND linked)
-        """
-        if len(fields) <= 0:
-            raise ValueError('fields should not be an empty list')
-
-        self.table = table
-        self.fields = fields
-
-    def sql(self):
-        fields_q = ''
-        for field1, field2 in self.fields:
-            fields_q += ' {} = {} AND'.format(field1, field2)
-
-        return 'JOIN {} ON{}'.format(self.table, fields_q[:-4])
-
-
 class Trigger:
     """A SQL trigger"""
     def __init__(self, sql_table, name):

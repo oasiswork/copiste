@@ -7,34 +7,11 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from unittest import TestCase
 from copiste.sql import *
-from copiste.models import SQLModel
 from copiste.functions.base import *
 import sys
 
 import tempfile
 import shutil
-
-
-
-
-class SQLTests(TestCase):
-    def test_instanciations_one_field(self):
-        j = Join('a_table', [('field1', 'field2')])
-        self.assertEqual(j.sql(), 'JOIN a_table ON field1 = field2')
-
-    def test_instanciations_multiple_fields(self):
-        j = Join('a_table', [('field1', 'field2'), ('field3', 'field4')])
-        self.assertEqual(j.sql(),
-                         'JOIN a_table ON field1 = field2 AND field3 = field4')
-
-    def test_instanciations_no_fields(self):
-        with self.assertRaises(ValueError):
-            j = Join('a_table', [])
-
-class SQLModelsTest(TestCase):
-    def test_instanciation_no_pk(self):
-        sm = SQLModel('table')
-        self.assertEqual(sm.key, 'id')
 
 class TestSettings(TestCase):
     def setUp(self):
