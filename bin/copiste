@@ -76,14 +76,7 @@ if __name__ == '__main__':
         # that first loop only remove relevant triggers
         for binding in MANIFEST.bindings:
             print 'uninstalling binding {}'.format(binding)
-            cur.execute(binding.trigger.sql_disable())
-
-        # FIXME: we may want to remove only the functions used by triggers
-        # that removes all copiste functions
-        cur.execute(SQL_DROP_ALL_COPISTE_FUNCS)
-        for row in cur.fetchall():
-            sql_drop = row[0]
-            cur.execute(sql_drop)
+            binding.uninstall(pg_con)
 
         cur.execute(
             copiste.functions.base.PlPythonFunction.sql_drop_pyargs_table())
