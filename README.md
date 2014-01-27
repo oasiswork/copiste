@@ -106,6 +106,11 @@ table `funky_table`.
 
 A *manifest* is meant to be used by the **copiste** command-line tool…
 
+#### Note for ldap-related manifests ####
+
+**Always** use the primary name for ldap field names. Using for eg, using "gn"
+  instead of "givenName" may lead to unpredictable results.
+
 Using copiste
 -------------
 
