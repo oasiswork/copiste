@@ -178,8 +178,18 @@ class Copy2LDAP(LDAPWriterFunction):
         # everything
         for ldap_k, sql_k in self.args['attrs_map'].items():
             if sql_data.has_key(sql_k):
-                o[ldap_k] = str(sql_data[sql_k])
+                v = sql_data[sql_k]
+                o[ldap_k] = self._convert_attr(v)
         return o
+
+    def _convert_attr(self, attr):
+        """ Converts attr  from Python type to LDAP string
+        """
+        if isinstance(attr, bool):
+            return 'TRUE' if attr else 'FALSE'
+        else:
+            return str(attr)
+
 
     def process_dyn_attrs(self, ldap_attrs, plpy, new_row):
         """ Process the dynamic attributes,
@@ -224,6 +234,7 @@ class Accumulate2LDAPField(LDAPWriterFunction):
         super(Accumulate2LDAPField, self).__init__(**kwargs)
 
     def handle_INSERT(self, TD, plpy, ldap_c):
+        print 'XXXXXXXXXXXXX EXECUTING', TD, plpy
         field = self.args['ldap_field']
         new_row = TD['new']
         new_val = new_row[field]

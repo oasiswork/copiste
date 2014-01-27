@@ -15,7 +15,9 @@ class PlPythonFunction(object):
 
         # builds a uuid withou '-' sign which is forbidden in SQL functions names
         self.uuid = ''
-        for f in uuid.uuid4().fields:
+        # take only the two last uuid groups because all is too long for
+        # postgres proname
+        for f in uuid.uuid4().fields[-2:]:
             self.uuid += str(f)
 
     def pymodule_name(self):
@@ -36,7 +38,7 @@ class PlPythonFunction(object):
         This name is prefixed by "copiste__" and contains a random UUID.
         """
         class_name = self.__class__.__name__
-        return 'copiste__tmpinit__{}__{}'.format(class_name.lower(), self.uuid)
+        return 'copiste__tmp__{}__{}'.format(class_name.lower(), self.uuid)
 
 
     def _marshalled_args(self):

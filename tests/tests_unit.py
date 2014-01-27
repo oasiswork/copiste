@@ -86,7 +86,7 @@ INSERT INTO copiste_pyargs(funcname, data) VALUES('{}', '{}');
     def test_plpythonfunction_sql_install_init(self):
         ppf = PlPythonFunction()
         expected = """
-CREATE FUNCTION copiste__tmpinit__plpythonfunction__{uuid}(new unittest_table)
+CREATE FUNCTION copiste__tmp__plpythonfunction__{uuid}(new unittest_table)
 RETURNS void
 AS
 $$
@@ -106,7 +106,7 @@ LANGUAGE plpythonu;
 
     def test_plpythonfunction_sql_uninstall_init(self):
         ppf = PlPythonFunction()
-        expected = 'DROP FUNCTION copiste__tmpinit__plpythonfunction__{}(new unittest_table)'.format(
+        expected = 'DROP FUNCTION copiste__tmp__plpythonfunction__{}(new unittest_table)'.format(
             ppf.uuid
         )
         self.assertEqual(ppf.sql_uninstall_init('unittest_table'), expected)
