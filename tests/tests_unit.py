@@ -134,6 +134,9 @@ LANGUAGE plpythonu;
         )
         self.assertEqual(ppf.sql_uninstall_init('unittest_table'), expected)
 
+    def test_plpythonfunction_extract_uuid(self):
+        ppf = PlPythonFunction()
+        self.assertEqual(ppf.extract_uuid(ppf.func_name()), ppf.uuid)
 
 class TestTrigger(TestCase):
     def test_writetrigger_enable(self):

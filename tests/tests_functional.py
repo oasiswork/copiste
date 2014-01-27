@@ -112,7 +112,7 @@ class TestBinding(AbstractPgEnviron):
         bind = copiste.binding.Bind(trigger, logwarn_func)
 
         # Cannot uninstall a not installed function
-        with self.assertRaises(psycopg2.ProgrammingError):
+        with self.assertRaises(copiste.binding.DoesNotExist):
             bind.uninstall(self.con)
         self.con.commit()
 
@@ -186,6 +186,25 @@ class TestBinding(AbstractPgEnviron):
         self.assertIn('43object', log_result)
         self.assertIn('44object', log_result)
 
+
+    def test_log_action_load_function(self):
+        msg = 'unittest_'+randomstring()
+        self.cur.execute('CREATE LANGUAGE plpythonu')
+        self.con.commit()
+
+        logwarn_func = copiste.functions.base.LogWarn(message=msg)
+
+        trigger = copiste.sql.WriteTrigger(
+            'unittest_table', 'warn_on_write')
+        bind = copiste.binding.Bind(trigger, logwarn_func)
+
+        bind.install(self.con)
+        self.con.commit()
+
+        old_name = logwarn_func.func_name()
+        logwarn_func.uuid = '1234' # Put some junk
+        bind.load_function(self.con)
+        self.assertEqual(old_name, logwarn_func.func_name())
 
 
 

@@ -113,10 +113,22 @@ LANGUAGE plpythonu;
     def sql_create_pyargs_table(self):
         return 'CREATE TABLE IF NOT EXISTS copiste_pyargs (funcname TEXT UNIQUE, data TEXT);'
 
+    def sql_get_for_trigger(self, trigger_name):
+        return """
+SELECT proname FROM pg_trigger JOIN pg_proc ON pg_proc.oid=pg_trigger.tgfoid
+WHERE pg_trigger.tgname = '{}'
+        """.format(trigger_name)
+
+    def set_uuid(self, uuid):
+        self.uuid = uuid
+
     @staticmethod
     def sql_drop_pyargs_table():
         return 'DROP TABLE IF EXISTS copiste_pyargs'
 
+    @staticmethod
+    def extract_uuid(function_name):
+        return function_name.split('__')[-1]
 
 class LogWarn(PlPythonFunction):
     """ Just a functions which prints something in postgres LOG
