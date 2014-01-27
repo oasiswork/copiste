@@ -114,7 +114,7 @@ LANGUAGE plpythonu;
         return 'CREATE TABLE IF NOT EXISTS copiste_pyargs (funcname TEXT UNIQUE, data TEXT);'
 
     @staticmethod
-    def sql_drop_pyargs_table(self):
+    def sql_drop_pyargs_table():
         return 'DROP TABLE IF EXISTS copiste_pyargs'
 
 

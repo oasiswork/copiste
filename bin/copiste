@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     pg_credentials = MANIFEST.pg_credentials
 
-    if not pg_credentials.has_key('password'):
+    if not pg_credentials.has_key('password') and pg_credentials.has_key('host'):
         prompt = '{user}@{host} postgres password: '.format(**pg_credentials)
         pg_credentials['password'] = getpass.getpass(prompt)
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
             cur.execute(sql_drop)
 
         cur.execute(
-            copiste.functions.base.PlPythonFunction.sql_drop_pyargs_table)
+            copiste.functions.base.PlPythonFunction.sql_drop_pyargs_table())
 
     elif args.subcommand == 'init':
         for binding in MANIFEST.bindings:
