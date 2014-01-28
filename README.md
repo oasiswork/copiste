@@ -73,11 +73,8 @@ want, it sould defines two variables (at least):
 * *bindings* a python list of bindings
 * *pg_credentials* : a python dict with informations to connec to to your DB.
    Keys are `host`, `user`, `database`, you can also specify `password`, but
-   it's recommended not to do so:  you will be prompted at run-time.
-
-Optionally, if you use ldap functions, you can define a *ldap_credentials*
-dict. Like for *pg_credentials*, you may not define the *bind_pw*, it will be
-prompted.
+   it's recommended not to do so:  you will be prompted at run-time. If you
+   don't specify `host`, then, local unix socket will be used.
 
 Here is a minimal manifest.
 
@@ -110,6 +107,10 @@ A *manifest* is meant to be used by the **copiste** command-line tool…
 
 **Always** use the primary name for ldap field names. Using for eg, using "gn"
   instead of "givenName" may lead to unpredictable results.
+
+You can define a *ldap_credentials*
+dict. Like for *pg_credentials*, you may not define the *bind_pw*, it will be
+prompted.
 
 Using copiste
 -------------
