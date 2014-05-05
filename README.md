@@ -26,6 +26,7 @@ You can see two different machines in the install/use process :
 
 ### Install on *db* ###
 
+    # apt-get install postgresql-plpython-9.1
     # ./setup.py install
 
 Note that you have to install it *outside virtualenvs* so that PostgreSQL can
@@ -37,8 +38,7 @@ You may install everything in virtualenv if you wish
 
     $ pip install psycopg2
 
-(that may require your root to install postgresql-server-dev-all and
-postgresql-plpython-9.1 packages)
+(that may require your root to install postgresql-server-dev-all  package)
 
 Then
 
