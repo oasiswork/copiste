@@ -220,18 +220,18 @@ class Accumulate2LDAPField(LDAPWriterFunction):
     """ This function will store the result of a query in a multi-value
         attribute from a ldap model.
     """
-    def __init__(self, ldap_field, keys_map, ldap_model, ldap_creds):
+    def __init__(self, ldap_field, keys_map, ldap_model, ldap_creds, **kwargs):
         # as models are marshalled for db storage, we can't store objects, but
         # only basic types.
         if not isinstance(ldap_model, dict):
             ldap_model = ldap_model.to_dict()
 
-        kwargs = {
+        kwargs.update({
             'ldap_field': ldap_field,
             'keys_map'  : keys_map,
             'ldap_model': ldap_model,
             'ldap_creds': ldap_creds
-        }
+        })
         super(Accumulate2LDAPField, self).__init__(**kwargs)
 
     def handle_INSERT(self, TD, plpy, ldap_c):
@@ -296,6 +296,44 @@ class Accumulate2LDAPField(LDAPWriterFunction):
             matches[ldap_key] = sql_data[sql_key]
 
         dn, attrs = ldap_model.get(ldap_c, matches)
+        try:
+            values = attrs[field]
+        except KeyError:
+            values = []
+        return dn, values
 
-        return dn, attrs[field]
+class AccumulateRequest2LDAPField(Accumulate2LDAPField):
+    """ Gets all the results from an SQL request to accumulate into multi-valued
+    attr.
 
+    Inefficient but flexible
+    """
+
+    def __init__(self, sql_request, *args, **kwargs):
+        kwargs['sql_request'] = sql_request
+        super(AccumulateRequest2LDAPField, self).__init__(*args, **kwargs)
+
+    def mk_sql_req(self, sql_data):
+        return self.args['sql_request'].format(**sql_data)
+
+    def handle_write_op(self, sql_row, plpy, ldap_c):
+        field = self.args['ldap_field']
+        sql_select = self.mk_sql_req(sql_row)
+
+        new_values = [i.values()[0] for i in plpy.execute(sql_select)]
+        dn, previous_values = self.get_accumulator_list(ldap_c, sql_row)
+        ldif = ldap.modlist.modifyModlist(
+            {field : previous_values},
+            {field : new_values}
+        )
+        plpy.log('settings  "{}" value to {} from SQL'.format(field, dn))
+        ldap_c.modify_s(dn, ldif)
+
+    def handle_INSERT(self, TD, plpy, ldap_c):
+        return self.handle_write_op(TD['new'], plpy, ldap_c)
+
+    def handle_UPDATE(self, TD, plpy, ldap_c):
+        return self.handle_write_op(TD['new'], plpy, ldap_c)
+
+    def handle_DELETE(self, TD, plpy, ldap_c):
+        return self.handle_write_op(TD['old'], plpy, ldap_c)
