@@ -266,8 +266,10 @@ class Accumulate2LDAPField(LDAPWriterFunction):
                         local_val = plpy.quote_literal(str(sql_data[j['join'][0]]))
                     )
                 )
-
-                v = vals[0][j['foreign_field']]
+                try:
+                    v = vals[0][j['foreign_field']]
+                except IndexError:
+                    raise NoSQLJoinMatch
             else:
                 raise ValueError('Wrong format for keys_map field')
 
@@ -346,6 +348,9 @@ class Accumulate2LDAPField(LDAPWriterFunction):
             values = []
         return dn, values
 
+class NoSQLJoinMatch(Exception):
+    pass
+
 class AccumulateRequest2LDAPField(Accumulate2LDAPField):
     """ Gets all the results from an SQL request to accumulate into multi-valued
     attr.
@@ -371,16 +376,23 @@ class AccumulateRequest2LDAPField(Accumulate2LDAPField):
 
     def handle_write_op(self, sql_row, plpy, ldap_c):
         field = self.args['ldap_field']
-        sql_select = self.mk_sql_req(sql_row, plpy)
 
-        new_values = [i.values()[0] for i in plpy.execute(sql_select)]
-        dn, previous_values = self.get_accumulator_list(ldap_c, sql_row, plpy)
-        ldif = ldap.modlist.modifyModlist(
-            {field : previous_values},
-            {field : new_values}
-        )
-        plpy.log('settings  "{}" value to {} from SQL'.format(field, dn))
-        ldap_c.modify_s(dn, ldif)
+        try:
+            sql_select = self.mk_sql_req(sql_row, plpy)
+            new_values = [i.values()[0] for i in plpy.execute(sql_select)]
+            dn, previous_values = self.get_accumulator_list(ldap_c, sql_row, plpy)
+
+        except NoSQLJoinMatch:
+            # If the join gives nothing (eg: do not update user mail when object
+            # is on a list alias)
+            pass
+        else:
+            ldif = ldap.modlist.modifyModlist(
+                {field : previous_values},
+                {field : new_values}
+            )
+            plpy.log('settings  "{}" value to {} from SQL'.format(field, dn))
+            ldap_c.modify_s(dn, ldif)
 
     def handle_INSERT(self, TD, plpy, ldap_c):
         return self.handle_write_op(TD['new'], plpy, ldap_c)
