@@ -234,11 +234,53 @@ class Accumulate2LDAPField(LDAPWriterFunction):
         })
         super(Accumulate2LDAPField, self).__init__(**kwargs)
 
+    def get_ldap_identifier_map(self, sql_data, plpy):
+        """ Returns the required key-val map to identify the target in the LDAP
+
+        @returns a dict, keys are ldap attrs names, values are ldap values.
+        """
+        matches = {}
+        for ldap_k, sql_k in self.args['keys_map'].items():
+            if isinstance(sql_k, (str,unicode)):
+                v = sql_data[sql_k]
+            elif isinstance(sql_k, dict):
+                # case of a JOIN :
+                # our ldap identifier is outside the current table
+
+                """ the join data, ex:
+                j = {
+                  'foreign_table': 'a_table',
+                  'foreign_field': 'a_field',   # field holding identifying data
+                  'join'         : ('local_field', 'foreign_field')
+                }
+
+                 """
+                j = sql_k
+
+                vals = plpy.execute((
+                    'SELECT {foreign_field} FROM {foreign_table}'+
+                    ' WHERE {foreign_attr} = {local_val}').format(
+                        foreign_field = plpy.quote_ident(j['foreign_field']),
+                        foreign_table = plpy.quote_ident(j['foreign_table']),
+                        foreign_attr  = plpy.quote_ident(j['join'][1]),
+                        local_val = plpy.quote_literal(sql_data[j['join'][0]])
+                        )
+                    )
+
+                v = vals[0][j['foreign_field']]
+            else:
+                raise ValueError('Wrong format for keys_map field')
+
+            matches[ldap_k] = v
+
+            return matches
+
+
     def handle_INSERT(self, TD, plpy, ldap_c):
         field = self.args['ldap_field']
         new_row = TD['new']
         new_val = new_row[field]
-        dn, previous_values = self.get_accumulator_list(ldap_c, new_row)
+        dn, previous_values = self.get_accumulator_list(ldap_c, new_row, plpy)
 
         if not new_val in previous_values:
             new_values = list(previous_values) # copy
@@ -256,7 +298,7 @@ class Accumulate2LDAPField(LDAPWriterFunction):
         old_row = TD['old']
         old_val = old_row[field]
 
-        dn, previous_values = self.get_accumulator_list(ldap_c, old_row)
+        dn, previous_values = self.get_accumulator_list(ldap_c, old_row, plpy)
         new_values = list(previous_values) # copy
         new_values.remove(old_val)
         ldif = ldap.modlist.modifyModlist(
@@ -274,7 +316,8 @@ class Accumulate2LDAPField(LDAPWriterFunction):
         new_val = new_row[field]
 
         if new_val != old_val:
-            dn, previous_values = self.get_accumulator_list(ldap_c, old_row)
+            dn, previous_values = self.get_accumulator_list(ldap_c, old_row,
+                                                            plpy)
             new_values = list(previous_values) # copy
             new_values.remove(old_val)
             if not new_val in new_values:
@@ -286,14 +329,12 @@ class Accumulate2LDAPField(LDAPWriterFunction):
             plpy.log('modifying a "{}" value in {} from SQL'.format(field, dn))
             ldap_c.modify_s(dn, ldif)
 
-    def get_accumulator_list(self, ldap_c, sql_data):
+    def get_accumulator_list(self, ldap_c, sql_data, plpy):
         keys_map = self.args['keys_map']
         ldap_model = self.get_ldap_model()
         field = self.args['ldap_field']
 
-        matches = {}
-        for ldap_key, sql_key in keys_map.items():
-            matches[ldap_key] = sql_data[sql_key]
+        matches = self.get_ldap_identifier_map(sql_data, plpy)
 
         dn, attrs = ldap_model.get(ldap_c, matches)
         try:
@@ -321,7 +362,7 @@ class AccumulateRequest2LDAPField(Accumulate2LDAPField):
         sql_select = self.mk_sql_req(sql_row)
 
         new_values = [i.values()[0] for i in plpy.execute(sql_select)]
-        dn, previous_values = self.get_accumulator_list(ldap_c, sql_row)
+        dn, previous_values = self.get_accumulator_list(ldap_c, sql_row, plpy)
         ldif = ldap.modlist.modifyModlist(
             {field : previous_values},
             {field : new_values}

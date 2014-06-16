@@ -537,6 +537,7 @@ class TestStoreIfExists(AbstractLDAPPostgresBinding):
 
         bind = copiste.binding.Bind(trigger, sync_ldap)
         bind.install(self.con)
+        self.sync_ldap = sync_ldap
 
     def test_insert(self):
         self.cur.execute(self.sql_insert_a_thing)
@@ -665,9 +666,6 @@ class LDAPRequestAccumulatFrom(AbstractLDAPPostgresBinding):
 class LDAPRequestAccumulatFrom2src(AbstractLDAPPostgresBinding):
     def setUp(self):
         super(LDAPRequestAccumulatFrom2src, self).setUp()
-        # sample data
-        # self.cur.execute(
-        #     "INSERT INTO unittest_table (id, mail) VALUES ('1', 'foo@bar.com')")
         sample_user = {'objectClass': ['top', 'inetOrgPerson'],
                        'mail': [], 'sn': ['foo@bar.com'],
                        'cn': ['foo@bar.com'], 'uid': ['1']}
@@ -777,3 +775,135 @@ SELECT mail FROM unittest_alias WHERE user_id='{id}'
         self.cur.execute(self.sql_delete)
         dn1, attrs1 = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
         self.assertEqual(attrs1['mail'],['foomain2@bar.com'])
+
+class LDAPRequestAccumulatWithJoin(AbstractLDAPPostgresBinding):
+    def setUp(self):
+        super(LDAPRequestAccumulatWithJoin, self).setUp()
+        sample_user = {'objectClass': ['top', 'inetOrgPerson'],
+                       'mail': [], 'sn': ['foo@bar.com'],
+                       'cn': ['foo@bar.com'], 'uid': ['1']}
+        self.ldap_c.add_s('uid=1,ou=users,dc=foo,dc=bar',
+                          ldap.modlist.addModlist(sample_user))
+
+
+        sample_otheruser = {'objectClass': ['top', 'inetOrgPerson'],
+                       'mail': [], 'sn': ['foo@other.com'],
+                       'cn': ['foo@other.com'], 'uid': ['2']}
+        self.ldap_c.add_s('uid=2,ou=users,dc=foo,dc=bar',
+                          ldap.modlist.addModlist(sample_otheruser))
+
+        # we create a second table
+        self.cur.execute(
+            'CREATE TABLE unittest_alias (user_id INT, mail VARCHAR(100) PRIMARY KEY)')
+
+        # we create a third table
+        self.cur.execute(
+            'CREATE TABLE unittest_subalias (mail VARCHAR(100),'+
+            '  alias_id varchar(100) references unittest_alias(mail))')
+
+        # SQL queries
+        self.sql_insert_main = \
+            "INSERT INTO unittest_table (id, mail) "+\
+            "VALUES ('1', 'foomain2@bar.com')"
+        self.sql_insert_alias = \
+            "INSERT INTO unittest_alias (user_id, mail) "+\
+            "VALUES ('1', 'foo2@bar.com')"
+        self.sql_insert_subalias = \
+            "INSERT INTO unittest_subalias (alias_id, mail) "+\
+            "VALUES ('foo2@bar.com', 'foo2subalias@bar.com')"
+
+        self.sql_insert_subalias2 = \
+            "INSERT INTO unittest_subalias (alias_id, mail) "+\
+            "VALUES ('foo2@bar.com', 'foo2subaliasbis@bar.com')"
+
+
+        self.sql_delete_subalias = \
+            "DELETE FROM unittest_subalias WHERE mail='foo2subalias@bar.com'"
+        self.sql_update_subalias = \
+            "UPDATE unittest_subalias set mail='foo2subalias@updated.tld' "+\
+            "WHERE (mail='foo2subalias@bar.com')"
+
+
+        self.sql_insert_othermain = \
+            "INSERT INTO unittest_table (id, mail) "+\
+            "VALUES ('2', 'foomain2@other.com')"
+        self.sql_insert_otheralias = \
+            "INSERT INTO unittest_alias (user_id, mail) "+\
+            "VALUES ('2', 'foo2@other.com')"
+        self.sql_insert_othersubalias = \
+            "INSERT INTO unittest_subalias (alias_id, mail) "+\
+            "VALUES ('foo2@other.com', 'foo2subalias@other.com')"
+
+
+        acc_email_subalias = copiste.functions.ldapfuncs.AccumulateRequest2LDAPField(
+            ldap_field = 'mail',
+            keys_map   = {'uid': {'foreign_table': 'unittest_alias',
+                                  'foreign_field': 'user_id',
+                                  'join'         : ('alias_id', 'mail')}},
+            ldap_model = self.ldap_user_model,
+            ldap_creds = self.creds,
+            sql_request=(
+"""
+SELECT unittest_subalias.mail FROM unittest_subalias
+JOIN unittest_alias ON (alias_id=unittest_alias.mail)
+WHERE alias_id='{alias_id}'
+""")
+        )
+
+        subalias_trigger = copiste.sql.WriteTrigger(
+            sql_table = 'unittest_subalias',
+            name      = 'accumulate_mail_aliases_subalias',
+            moment    = 'AFTER'
+        )
+        bind_alias = copiste.binding.Bind(subalias_trigger, acc_email_subalias)
+        bind_alias.install(self.con)
+
+    def test_insert(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertNotIn('mail', attrs.keys())
+        self.cur.execute(self.sql_insert_subalias)
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['mail'], ['foo2subalias@bar.com'])
+
+
+    def test_insert_multi(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert_subalias)
+        self.cur.execute(self.sql_insert_subalias2)
+
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['mail'], ['foo2subalias@bar.com',
+                                         'foo2subaliasbis@bar.com'])
+
+    def test_insert_other(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert_subalias)
+
+        self.cur.execute(self.sql_insert_othermain)
+        self.cur.execute(self.sql_insert_otheralias)
+        self.cur.execute(self.sql_insert_othersubalias)
+
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['mail'], ['foo2subalias@bar.com'])
+
+
+    def test_delete(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert_subalias)
+        self.cur.execute(self.sql_delete_subalias)
+
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertNotIn('mail', attrs.keys())
+
+    def test_update(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert_subalias)
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertEqual(attrs['mail'], ['foo2subalias@bar.com'])
