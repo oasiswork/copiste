@@ -4,4 +4,4 @@
 .vagrant
 build
 dist
-zimsoap.egg-info
+*.egg-info
