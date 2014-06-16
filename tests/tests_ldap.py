@@ -816,6 +816,9 @@ class LDAPRequestAccumulatWithJoin(AbstractLDAPPostgresBinding):
             "INSERT INTO unittest_subalias (alias_id, mail) "+\
             "VALUES ('foo2@bar.com', 'foo2subaliasbis@bar.com')"
 
+        self.sql_insert_subalias_nullfk = \
+            "INSERT INTO unittest_subalias (mail) "+\
+            "VALUES ('foo2subalias@bar.com')"
 
         self.sql_delete_subalias = \
             "DELETE FROM unittest_subalias WHERE mail='foo2subalias@bar.com'"
@@ -868,6 +871,14 @@ WHERE alias_id='{alias_id}'
         dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
         self.assertEqual(attrs['mail'], ['foo2subalias@bar.com'])
 
+
+    def test_insert_null_fk(self):
+        self.cur.execute(self.sql_insert_main)
+        self.cur.execute(self.sql_insert_alias)
+        self.cur.execute(self.sql_insert_subalias_nullfk)
+
+        dn, attrs = self.ldap_user_model.get(self.ldap_c, {'uid':'1'})
+        self.assertNotIn('mail', attrs.keys())
 
     def test_insert_multi(self):
         self.cur.execute(self.sql_insert_main)
