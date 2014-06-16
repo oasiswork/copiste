@@ -263,9 +263,9 @@ class Accumulate2LDAPField(LDAPWriterFunction):
                         foreign_field = plpy.quote_ident(j['foreign_field']),
                         foreign_table = plpy.quote_ident(j['foreign_table']),
                         foreign_attr  = plpy.quote_ident(j['join'][1]),
-                        local_val = plpy.quote_literal(sql_data[j['join'][0]])
-                        )
+                        local_val = plpy.quote_literal(str(sql_data[j['join'][0]]))
                     )
+                )
 
                 v = vals[0][j['foreign_field']]
             else:
@@ -362,7 +362,8 @@ class AccumulateRequest2LDAPField(Accumulate2LDAPField):
         if self.has_join():
             data = {}
             foreign_id = self.get_ldap_identifier_map(sql_data, plpy).values()[0]
-            data.update(sql_data, {'_foreign_id': foreign_id})
+            data.update(sql_data)
+            data.update({'_foreign_id': foreign_id})
         else:
             data = sql_data
 
