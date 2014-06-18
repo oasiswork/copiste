@@ -256,14 +256,16 @@ class Accumulate2LDAPField(LDAPWriterFunction):
 
                  """
                 j = sql_k
-
+                field_value = sql_data[j['join'][0]]
+                if field_value is None:
+                    raise NoSQLJoinMatch
                 vals = plpy.execute((
                     'SELECT {foreign_field} FROM {foreign_table}'+
                     ' WHERE {foreign_attr} = {local_val}').format(
                         foreign_field = plpy.quote_ident(j['foreign_field']),
                         foreign_table = plpy.quote_ident(j['foreign_table']),
                         foreign_attr  = plpy.quote_ident(j['join'][1]),
-                        local_val = plpy.quote_literal(str(sql_data[j['join'][0]]))
+                        local_val = plpy.quote_literal(str(field_value))
                     )
                 )
                 try:
