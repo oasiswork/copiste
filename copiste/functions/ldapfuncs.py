@@ -403,4 +403,6 @@ class AccumulateRequest2LDAPField(Accumulate2LDAPField):
         return self.handle_write_op(TD['new'], plpy, ldap_c)
 
     def handle_DELETE(self, TD, plpy, ldap_c):
-        return self.handle_write_op(TD['old'], plpy, ldap_c)
+        """Don't accumulate to a field of a vanished record...
+        """
+        pass
