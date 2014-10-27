@@ -3,4 +3,5 @@
 	url = https://github.com/puppetlabs/puppetlabs-stdlib.git
 [submodule "tests/modules/ldap"]
 	path = tests/modules/ldap
-	url = https://github.com/torian/puppet-ldap.git
+	url = https://github.com/mojolingo/puppet-ldap.git
+	branch = feature/rtc
